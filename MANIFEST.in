@@ -1,0 +1,2 @@
+include cbpi4-iSpindle/config.yaml
+recursive-include cbpi4-iSpindle/static *
