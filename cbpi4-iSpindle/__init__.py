@@ -29,7 +29,7 @@ async def calcGravity(polynom, tilt, unitsGravity):
 	return result
 
 @parameters([Property.Text(label="iSpindle", configurable=True, description="Enter the name of your iSpindel"),
-             Property.Select("Type", options=["Temperature", "Gravity", "Battery"], description="Select which type of data to register for this sensor"),
+             Property.Select("Type", options=["Temperature", "Gravity/Angle", "Battery"], description="Select which type of data to register for this sensor. For Angle, Polynomial has to be left empty"),
              Property.Text(label="Polynomial", configurable=True, description="Enter your iSpindel polynomial. Use the variable tilt for the angle reading from iSpindel. Does not support ^ character."),
              Property.Select("Units", options=["SG", "Brix", "°P"], description="Displays gravity reading with this unit if the Data Type is set to Gravity. Does not convert between units, to do that modify your polynomial.")])
 
@@ -45,7 +45,7 @@ class iSpindle(CBPiSensor):
     def get_unit(self):
         if self.props.Type == "Temperature":
             return "°C" if self.get_config_value("TEMP_UNIT", "C") == "C" else "°F"
-        elif self.props.Type == "Gravity":
+        elif self.props.Type == "Gravity/Angle":
             return self.props.Units
         elif self.props.Type == "Battery":
             return "V"
@@ -58,7 +58,7 @@ class iSpindle(CBPiSensor):
             try:
                 if (float(cache[self.key]['Time']) > float(self.time_old)):
                     self.time_old = float(cache[self.key]['Time'])
-                    if self.props.Type == "Gravity":
+                    if self.props.Type == "Gravity/Angle":
                         self.value = await calcGravity(self.Polynomial, cache[self.key]['Angle'], self.props.Units)
                     else:
                         self.value = float(cache[self.key][self.props.Type])
