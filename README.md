@@ -7,7 +7,7 @@
     - For Server, please enter the IP address of your CBPi4 Server.
     - Enter 8000 for Port and '/api/hydrometer/v1/data' for path.
 
-![alt text](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/cbpi4-iSpindle/Spindle_Connection_Settings.png?raw=true)
+![iSpindle Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Spindle_Connection_Settings.png?raw=true)
 
 - Installation: 
     - pip install cbpi4-iSpindle (or from the GIT repo)
@@ -26,4 +26,4 @@
     - Polynomial: The polynomial to calculate gravity. '^' is not working. You need to uses tilt*tilt*tilt for '^3' and tilt*tilt for '^2'
     - Units: Choose SG, Brix or °P. This has impact on the calculated digits
 
-![alt text](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/cbpi4-iSpindle/Settings.png?raw=true)
+![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
