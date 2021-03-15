@@ -7,11 +7,12 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='cbpi4-iSpindle',
-      version='0.0.2',
+      version='0.0.3',
       description='CraftBeerPi4 iSpindle Sensor Plugin',
       author='Alexander Vollkopf',
       author_email='avollkopf@web.de',
-      url='',
+      url='https://github.com/avollkopf/cbpi4-iSpindle',
+      license='GPLv 3.0',
       include_package_data=True,
       package_data={
         # If any package contains *.txt or *.rst files, include them:

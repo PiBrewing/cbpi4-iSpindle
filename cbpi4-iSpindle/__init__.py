@@ -54,7 +54,7 @@ class iSpindle(CBPiSensor):
 
     async def run(self):
         global cache
-        while True:
+        while self.running == True:
             try:
                 if (float(cache[self.key]['Time']) > float(self.time_old)):
                     self.time_old = float(cache[self.key]['Time'])

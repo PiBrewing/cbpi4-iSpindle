@@ -27,3 +27,7 @@
     - Units: Choose SG, Brix or °P. This has impact on the calculated digits
 
 ![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
+
+Changelog:
+
+15.03.21: Changes to suppoer cbpi >= 4.0.0.31
