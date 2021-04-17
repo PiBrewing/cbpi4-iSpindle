@@ -38,16 +38,16 @@ class iSpindle(CBPiSensor):
     def __init__(self, cbpi, id, props):
         super(iSpindle, self).__init__(cbpi, id, props)
         self.value = 0
-        self.key = self.props.iSpindle
-        self.Polynomial = 'tilt' if self.props.Polynomial == '' else self.props.Polynomial
+        self.key = self.props.get("iSpindle", None)
+        self.Polynomial = self.props.get("Polynomial", "tilt")
         self.time_old = 0
 
     def get_unit(self):
-        if self.props.Type == "Temperature":
+        if self.props.get("Type") == "Temperature":
             return "°C" if self.get_config_value("TEMP_UNIT", "C") == "C" else "°F"
-        elif self.props.Type == "Gravity/Angle":
+        elif self.props.get("Type") == "Gravity/Angle":
             return self.props.Units
-        elif self.props.Type == "Battery":
+        elif self.props.get("Type") == "Battery":
             return "V"
         else:
             return " "
@@ -58,8 +58,8 @@ class iSpindle(CBPiSensor):
             try:
                 if (float(cache[self.key]['Time']) > float(self.time_old)):
                     self.time_old = float(cache[self.key]['Time'])
-                    if self.props.Type == "Gravity/Angle":
-                        self.value = await calcGravity(self.Polynomial, cache[self.key]['Angle'], self.props.Units)
+                    if self.props.get("Type") == "Gravity/Angle":
+                        self.value = await calcGravity(self.Polynomial, cache[self.key]['Angle'], self.props.get("Units"))
                     else:
                         self.value = float(cache[self.key][self.props.Type])
                     self.log_data(self.value)

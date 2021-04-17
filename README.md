@@ -28,6 +28,7 @@
 
 ![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
 
-Changelog:
+- Changelog:
 
-15.03.21: Changes to suppoer cbpi >= 4.0.0.31
+	- 15.03.21: Changes to suppoer cbpi >= 4.0.0.31
+	- 17.04.21: Some small fixes
