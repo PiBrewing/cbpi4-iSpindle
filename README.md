@@ -30,5 +30,6 @@
 
 - Changelog:
 
+	- 10.06.21: Fix to improve UI behavior with respect to frequency of value update
 	- 15.03.21: Changes to suppoer cbpi >= 4.0.0.31
 	- 17.04.21: Some small fixes
