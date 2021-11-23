@@ -30,7 +30,7 @@ async def calcGravity(polynom, tilt, unitsGravity):
 	return result
 
 @parameters([Property.Text(label="iSpindle", configurable=True, description="Enter the name of your iSpindel"),
-             Property.Select("Type", options=["Temperature", "Gravity/Angle", "Battery"], description="Select which type of data to register for this sensor. For Angle, Polynomial has to be left empty"),
+             Property.Select("Type", options=["Temperature", "Gravity/Angle", "Battery", "RSSI"], description="Select which type of data to register for this sensor. For Angle, Polynomial has to be left empty"),
              Property.Text(label="Polynomial", configurable=True, description="Enter your iSpindel polynomial. Use the variable tilt for the angle reading from iSpindel. Does not support ^ character."),
              Property.Select("Units", options=["SG", "Brix", "°P"], description="Displays gravity reading with this unit if the Data Type is set to Gravity. Does not convert between units, to do that modify your polynomial."),
              Property.Sensor("FermenterTemp",description="Select Fermenter Temp Sensor that you want to provide to TCP Server")])
@@ -52,6 +52,8 @@ class iSpindle(CBPiSensor):
             return self.props.Units
         elif self.props.get("Type") == "Battery":
             return "V"
+        elif self.props.get("Type") == "RSSI":
+            return "dB"
         else:
             return " "
 
@@ -119,12 +121,17 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
+#        logging.info(data)
         time = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
         angle = data['angle']
         battery = data['battery']
-        cache[key] = {'Time': time,'Temperature': temp, 'Angle': angle, 'Battery': battery}
+        try:
+            rssi = data['RSSI']
+        except:
+            rssi = 0
+        cache[key] = {'Time': time,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
 
 
     @request_mapping(path='/gettemp/{SpindleID}', method="POST", auth_required=False)

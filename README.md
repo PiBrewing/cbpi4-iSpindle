@@ -28,8 +28,9 @@
 
 ![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
 
-- Changelog:
+### Changelog:
 
-	- 10.06.21: Fix to improve UI behavior with respect to frequency of value update
-	- 15.03.21: Changes to suppoer cbpi >= 4.0.0.31
-	- 17.04.21: Some small fixes
+- 23.11.21: Added RSSI to available parmeters
+- 10.06.21: Fix to improve UI behavior with respect to frequency of value update
+- 17.04.21: Some small fixes
+- 15.03.21: Changes to suppoer cbpi >= 4.0.0.31
