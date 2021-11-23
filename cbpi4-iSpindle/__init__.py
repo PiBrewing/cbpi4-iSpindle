@@ -121,7 +121,7 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-#        logging.info(data)
+        logging.info(data)
         time = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
