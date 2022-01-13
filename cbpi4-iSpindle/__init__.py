@@ -70,11 +70,12 @@ class iSpindle(CBPiSensor):
                     else:
                         self.value = float(cache[self.key][self.props.Type])
                     self.log_data(self.value)
-                self.push_update(self.value)
+                    self.push_update(self.value)
+                self.cbpi.ws.send(dict(topic="sensorstate", id=self.id, value=self.value))
                 
             except Exception as e:
                 pass
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
     def get_state(self):
         return dict(value=self.value)
