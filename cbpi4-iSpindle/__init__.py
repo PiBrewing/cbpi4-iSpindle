@@ -71,7 +71,8 @@ class iSpindle(CBPiSensor):
                         self.value = float(cache[self.key][self.props.Type])
                     self.log_data(self.value)
                     self.push_update(self.value)
-                self.cbpi.ws.send(dict(topic="sensorstate", id=self.id, value=self.value))
+                self.push_update(self.value,False)
+                #self.cbpi.ws.send(dict(topic="sensorstate", id=self.id, value=self.value))
                 
             except Exception as e:
                 pass

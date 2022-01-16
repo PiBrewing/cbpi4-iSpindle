@@ -30,7 +30,8 @@
 
 ### Changelog:
 
-- 13.01.21: (0.0.7) Reduced mqtt traffic -> update only for new value
+- 16.01.22: (0.0.8) Adaption for cbpi 4.0.1.2
+- 13.01.22: (0.0.7) Reduced mqtt traffic -> update only for new value
 - 23.11.21: (0.0.6) Added RSSI to available parmeters
 - 10.06.21: (0.0.5) Fix to improve UI behavior with respect to frequency of value update
 - 17.04.21: Some small fixes
