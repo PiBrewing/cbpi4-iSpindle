@@ -30,6 +30,7 @@
 
 ### Changelog:
 
+- 10.05.22: (0.0.9) Removed cbpi dependency
 - 16.01.22: (0.0.8) Adaption for cbpi 4.0.1.2
 - 13.01.22: (0.0.7) Reduced mqtt traffic -> update only for new value
 - 23.11.21: (0.0.6) Added RSSI to available parmeters
