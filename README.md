@@ -10,8 +10,8 @@
 ![iSpindle Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Spindle_Connection_Settings.png?raw=true)
 
 - Installation: 
-    - pip install cbpi4-iSpindle (or from the GIT repo)
-    - cbpi add cbpi4-iSpindle
+    - sudo pip3 install cbpi4-iSpindle (or from the GIT repo)
+
 - Usage:
     - Add Hardware under Sensor and choose iSpindle as Type
 
@@ -30,6 +30,7 @@
 
 ### Changelog:
 
+- 11.05.22: (0.0.10) Updated README (removed cbpi add)
 - 10.05.22: (0.0.9) Removed cbpi dependency
 - 16.01.22: (0.0.8) Adaption for cbpi 4.0.1.2
 - 13.01.22: (0.0.7) Reduced mqtt traffic -> update only for new value
