@@ -153,7 +153,7 @@ class iSpindleEndpoint(CBPiExtension):
                         sensor= id['props']['FermenterTemp']
                     except:
                         sensor = None
-                    if sensor is not None:
+                    if (sensor is not None) and sensor != "":
                         sensor_value = self.cbpi.sensor.get_sensor_value(sensor).get('value')
                     else:
                         sensor_value = None
