@@ -12,6 +12,7 @@ from cbpi.api import *
 import re
 import time
 import json
+from cbpi.api.dataclasses import DataType
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class iSpindle(CBPiSensor):
         self.key = self.props.get("iSpindle", None)
         self.Polynomial = self.props.get("Polynomial", "tilt")
         self.temp_sensor_id = self.props.get("FermenterTemp", None)
+        self.datatype = DataType.DATETIME if self.props.get("Type", None) == "DateTime" else DataType.VALUE
         self.time_old = 0
 
     def get_unit(self):

@@ -30,6 +30,8 @@
 
 ### Changelog:
 
+- 06.03.23: (0.0.12.a2) Added DataType for datetime (TEST)
+- XX.XX.XX: (0.0.11) ???
 - 11.05.22: (0.0.10) Updated README (removed cbpi add)
 - 10.05.22: (0.0.9) Removed cbpi dependency
 - 16.01.22: (0.0.8) Adaption for cbpi 4.0.1.2
