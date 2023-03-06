@@ -30,7 +30,7 @@ async def calcGravity(polynom, tilt, unitsGravity):
 	return result
 
 @parameters([Property.Text(label="iSpindle", configurable=True, description="Enter the name of your iSpindel"),
-             Property.Select("Type", options=["Temperature", "Gravity/Angle", "Battery", "RSSI"], description="Select which type of data to register for this sensor. For Angle, Polynomial has to be left empty"),
+             Property.Select("Type", options=["Temperature", "Gravity/Angle", "Battery", "RSSI", "DateTime"], description="Select which type of data to register for this sensor. For Angle, Polynomial has to be left empty"),
              Property.Text(label="Polynomial", configurable=True, description="Enter your iSpindel polynomial. Use the variable tilt for the angle reading from iSpindel. Does not support ^ character."),
              Property.Select("Units", options=["SG", "Brix", "°P"], description="Displays gravity reading with this unit if the Data Type is set to Gravity. Does not convert between units, to do that modify your polynomial."),
              Property.Sensor("FermenterTemp",description="Select Fermenter Temp Sensor that you want to provide to TCP Server")])
@@ -67,6 +67,8 @@ class iSpindle(CBPiSensor):
                     self.time_old = float(cache[self.key]['Time'])
                     if self.props.get("Type") == "Gravity/Angle":
                         self.value = await calcGravity(self.Polynomial, cache[self.key]['Angle'], self.props.get("Units"))
+                    elif self.props.get("Type") == "DateTime":
+                        self.value=float(cache[self.key]['Time'])
                     else:
                         self.value = float(cache[self.key][self.props.Type])
                     self.log_data(self.value)
@@ -123,7 +125,7 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        logging.info(data)
+        logging.warning(data)
         time = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
