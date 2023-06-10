@@ -30,6 +30,7 @@
 
 ### Changelog:
 
+- 10.06.23: (0.0.12) bump to release
 - 06.03.23: (0.0.12.a2) Added DataType for datetime (TEST)
 - XX.XX.XX: (0.0.11) ???
 - 11.05.22: (0.0.10) Updated README (removed cbpi add)

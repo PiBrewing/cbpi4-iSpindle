@@ -7,7 +7,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='cbpi4-iSpindle',
-      version='0.0.12.a2',
+      version='0.0.12',
       description='CraftBeerPi4 iSpindle Sensor Plugin',
       author='Alexander Vollkopf',
       author_email='avollkopf@web.de',
