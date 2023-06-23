@@ -23,7 +23,7 @@
     - iSpindle: Name of your Spindle that you entered in the Spindle setup page. This name must match to the Spindle. Otherwise no data will be collected.
     - Type: Temperature, Gravity/Angle, Battery (Choose one type)
         - If Gravity/Angle is choosen and the Polynomial field is left empty, the angle data is stored
-    - Polynomial: The polynomial to calculate gravity. '^' is not working. You need to uses 'tilt\*tilt\*tilt' for '^3' and 'tilt*tilt' for '^2'
+    - Polynomial: The polynomial to calculate gravity. '^' is not working. You need to use 'tilt\*tilt\*tilt' for '^3' and 'tilt*tilt' for '^2'
     - Units: Choose SG, Brix or °P. This has impact on the calculated digits
 
 ![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
