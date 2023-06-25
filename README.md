@@ -30,6 +30,7 @@
 
 ### Changelog:
 
+- 25.06.23: (0.0.13) change logging from 'warning' to 'info'
 - 10.06.23: (0.0.12) bump to release
 - 06.03.23: (0.0.12.a2) Added DataType for datetime (TEST)
 - XX.XX.XX: (0.0.11) ???
