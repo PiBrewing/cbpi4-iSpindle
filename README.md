@@ -7,7 +7,7 @@
     - For Server, please enter the IP address of your CBPi4 Server.
     - Enter 8000 for Port and '/api/hydrometer/v1/data' for path.
 
-![iSpindle Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Spindle_Connection_Settings.png?raw=true)
+![iSpindle Settings](https://github.com/PiBrewing/cbpi4-iSpindle/blob/main/Spindle_Connection_Settings.png?raw=true)
 
 - Installation: 
     - sudo pip3 install cbpi4-iSpindle (or from the GIT repo)
@@ -27,7 +27,7 @@
     - Units: Choose SG, Brix or °P. This has impact on the calculated digits.
     - Sensor: Only useful in combination with the [iSpindle TCP Server](https://github.com/avollkopf/iSpindel-TCP-Server). If aforementioned server is forwarding iSpindle data to craftbeerpi, it can also read the fermenter temp sensor and store the data in the TCP server database in parallel to the iSpindle temeprature. If you have defined more than one sensor for one iSpindle (e.g. gravity and date of last measurement), you need to set the fermenter for both sensors.
 
-![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
+![CBPi4 Settings](https://github.com/PiBrewing/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
 
 ### Changelog:
 
