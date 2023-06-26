@@ -24,7 +24,8 @@
     - Type: Temperature, Gravity/Angle, Battery (Choose one type)
         - If Gravity/Angle is choosen and the Polynomial field is left empty, the angle data is stored
     - Polynomial: The polynomial to calculate gravity. '^' is not working. You need to use 'tilt\*tilt\*tilt' for '^3' and 'tilt*tilt' for '^2'
-    - Units: Choose SG, Brix or °P. This has impact on the calculated digits
+    - Units: Choose SG, Brix or °P. This has impact on the calculated digits.
+    - Sensor: Only useful in combination with the [iSpindle TCP Server](https://github.com/avollkopf/iSpindel-TCP-Server). If aforementioned server is forwarding iSpindle data to craftbeerpi, it can also read the fermenter temp sensor and store the data in the TCP server database in parallel to the iSpindle temeprature. If you have defined more than one sensor for one iSpindle (e.g. gravity and date of last measurement), you need to set the fermenter for both sensors.
 
 ![CBPi4 Settings](https://github.com/avollkopf/cbpi4-iSpindle/blob/main/Settings.png?raw=true)
 
