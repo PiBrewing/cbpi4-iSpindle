@@ -793,7 +793,7 @@ class iSpindleEndpoint(CBPiExtension):
         i=0
         for spindle in spindles:
             data= {"const0": float(spindle_calibration[i][0][0]), "const1": float(spindle_calibration[i][0][1]), "const2": float(spindle_calibration[i][0][2]), "const3": float(spindle_calibration[i][0][3])}
-            result_spindles.append({'value': int(spindle_ids[i]) , 'label': spindle[1], 'data': data})
+            result_spindles.append({'value': i, 'ID': int(spindle_ids[i]) , 'label': spindle[1], 'data': data})
             i+=1
        
         return result_spindles
