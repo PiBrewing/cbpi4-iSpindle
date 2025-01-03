@@ -748,7 +748,7 @@ class iSpindleEndpoint(CBPiExtension):
         cnx.commit()
 
     @request_mapping(path='/getcalibration/', method="POST", auth_required=False)
-    async def get_archive_header(self, request):
+    async def getcalibration(self, request):
         """
         ---
         description: Get calibration data for all spindles
