@@ -19,6 +19,7 @@ setup(name='cbpi4-iSpindle',
       '': ['*.txt', '*.rst', '*.yaml'],
       'cbpi4-iSpindle': ['*','*.txt', '*.rst', '*.yaml']},
       packages=['cbpi4-iSpindle'],
+      keywords=['globalsettings'],
       install_requires=['mysql-connector-python'],
       long_description=long_description,
       long_description_content_type='text/markdown'
