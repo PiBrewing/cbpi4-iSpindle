@@ -482,15 +482,27 @@ class iSpindleEndpoint(CBPiExtension):
         Start_date=result_archive[0]['Start_date']
         End_date=result_archive[0]['End_date']
 
-        const0=result_archive[0]['const0']
-        const1=result_archive[0]['const1']  
-        const2=result_archive[0]['const2']
-        const3=result_archive[0]['const3']
+        try:
+            const0=result_archive[0]['const0']
+            const1=result_archive[0]['const1']  
+            const2=result_archive[0]['const2']
+            const3=result_archive[0]['const3']
+            calibrated=True
+        except:
+            const0=0
+            const1=0
+            const2=0
+            const3=0
+            calibrated=False
 
-        if const0 == 0:
-            forumla= "{:+.5f} * tilt^2 {:+.5f} * tilt {:+.5f}".format(const1, const2, const3)
+        if calibrated:
+            if const0 == 0:
+                forumla= "{:+.5f} * tilt^2 {:+.5f} * tilt {:+.5f}".format(const1, const2, const3)
+            else:
+                forumla= "{:+.5f} * tilt^3 {:+.5f} * tilt^2 {:+.5f} * tilt {:+.5f}".format(const0, const1, const2, const3)
         else:
-            forumla= "{:+.5f} * tilt^3 {:+.5f} * tilt^2 {:+.5f} * tilt {:+.5f}".format(const0, const1, const2, const3)
+            forumla="Not calibrated"
+
 
         #if no entry for end date in archive table, get last timestamp of last dataset for selected recipe from data table
         if End_date is None:
@@ -537,7 +549,7 @@ class iSpindleEndpoint(CBPiExtension):
         alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
         alcohol_by_volume = round((alcohol_by_weight / 0.795),1)
 
-        archive_header=dict.fromkeys(['ArchiveID', 'Spindle_Name', 'Batch', 'Recipe', 'Start_date', 'End_date', 'Const0', 'Const1', 'Const2', 'Const3', 'Formula', 'Initial_Gravity', 'Final_Gravity', 'Attenuation', 'Alcohol_by_volume']) 
+        archive_header=dict.fromkeys(['ArchiveID', 'Spindle_Name', 'Batch', 'Recipe', 'Start_date', 'End_date', 'Const0', 'Const1', 'Const2', 'Const3','Calibrated', 'Formula', 'Initial_Gravity', 'Final_Gravity', 'Attenuation', 'Alcohol_by_volume']) 
         archive_header['Spindle_Name']=Spindle_Name
         archive_header['Batch']=Batch
         archive_header['Recipe']=Recipe
@@ -548,6 +560,7 @@ class iSpindleEndpoint(CBPiExtension):
         archive_header['Const1']=const1
         archive_header['Const2']=const2
         archive_header['Const3']=const3
+        archive_header['Calibrated']=calibrated
         archive_header['Formula']=forumla
         archive_header['Initial_Gravity']=initial_gravity
         archive_header['Final_Gravity']=final_gravity
@@ -766,6 +779,7 @@ class iSpindleEndpoint(CBPiExtension):
         spindles = []
         spindle_ids=[]
         spindle_calibration=[]
+        calibrated=[]
         cnx = mysql.connector.connect(
             user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
         cur = cnx.cursor()
@@ -788,15 +802,88 @@ class iSpindleEndpoint(CBPiExtension):
             calibration_sql=f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {int(spindle_id[0][0])}" 
             cur.execute(calibration_sql)
             spindle_cal = cur.fetchall()
-            spindle_calibration.append(spindle_cal)
-        
+            if spindle_cal:
+                spindle_calibration.append(spindle_cal)
+                calibrated.append(True)
+            else:  
+                spindle_calibration.append([(0,0,0,0)])
+                calibrated.append(False)
+
         i=0
         for spindle in spindles:
-            data= {"const0": float(spindle_calibration[i][0][0]), "const1": float(spindle_calibration[i][0][1]), "const2": float(spindle_calibration[i][0][2]), "const3": float(spindle_calibration[i][0][3])}
+            data= {"calibrated": calibrated[i],"const0": float(spindle_calibration[i][0][0]), "const1": float(spindle_calibration[i][0][1]), "const2": float(spindle_calibration[i][0][2]), "const3": float(spindle_calibration[i][0][3])}
             result_spindles.append({'value': i, 'ID': int(spindle_ids[i]) , 'label': spindle[1], 'data': data})
             i+=1
        
         return result_spindles
+
+    @request_mapping(path='/savecalibration/{id}/', method="POST", auth_required=False)
+    async def savecalibration(self, request):
+        """
+        ---
+        description: Save Calibration for specified spindle id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "id"
+          in: "path"
+          description: "Spindle ID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - in: body
+          name: body
+          description: dict of const0, const1, const2, const3
+          required: true
+          schema:
+            type: object
+
+            properties:
+              const0:
+                type: "float"
+                format: "float"
+                required: true
+              const1:
+                type: "float"
+                format: "float"
+                required: true
+              const2:
+                type: "float"
+                format: "float"
+                required: true                            
+              const3:
+                type: "float"
+                format: "float"
+                required: true             
+        example:
+            const0: 0.0
+            const1: 0.0
+            const2: 0.0
+            const3: 0.0
+
+        responses:
+            "200":
+                description: successful operation
+        """        
+        data = await request.json()
+        id = request.match_info['id']
+        await self.save_calibration(id, data)
+
+        return  web.json_response(status=200)
+
+    async def save_calibration(self, id, data):
+        cnx = mysql.connector.connect(
+                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+        cur = cnx.cursor()
+        if data['calibrated'] == True:
+            sql_update = "UPDATE Calibration SET const0 = {}, const1 = {}, const2 = {}, const3 = {} WHERE ID = '{}'".format(data['const0'], data['const1'], data['const2'], data['const3'], id)
+            cur.execute(sql_update)
+            cnx.commit()
+        else:
+            sql_insert = "INSERT INTO Calibration (ID, const0, const1, const2, const3) VALUES ('{}', '{}', '{}', '{}', '{}')".format(id, data['const0'], data['const1'], data['const2'], data['const3'])
+            cur.execute(sql_insert)
+            cnx.commit()
+
 
 def setup(cbpi):
     cbpi.plugin.register("iSpindle", iSpindle)
