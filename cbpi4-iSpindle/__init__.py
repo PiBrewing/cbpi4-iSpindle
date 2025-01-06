@@ -459,9 +459,13 @@ class iSpindleEndpoint(CBPiExtension):
                 description: successful operation
         """
         ArchiveID = request.match_info['ArchiveID']
-        header_data = await self.get_archive_header_data(ArchiveID)
-        #logger.error(header_data)
-        return  web.json_response(data=header_data)
+        try:
+            header_data = await self.get_archive_header_data(ArchiveID)
+            #logger.error(header_data)
+            return  web.json_response(data=header_data)
+        except Exception as e:
+            logger.error(e)
+            return  web.json_response(status=500)
     
     async def get_archive_header_data(self, ArchiveID):
         result_angle=[] 
@@ -489,10 +493,10 @@ class iSpindleEndpoint(CBPiExtension):
             const3=result_archive[0]['const3']
             calibrated=True
         except:
-            const0=0
-            const1=0
-            const2=0
-            const3=0
+            const0=0.000000001
+            const1=0.000000001
+            const2=0.000000001
+            const3=0.000000001
             calibrated=False
 
         if calibrated:
@@ -529,10 +533,12 @@ class iSpindleEndpoint(CBPiExtension):
         columns = [column[0] for column in cur.description]
         result_angle = [dict(zip(columns, row)) for row in cur.fetchall()]
         
-        if len(result_angle) > 0:
-            initial_angle=result_angle[0]['angle']
-            initial_gravity = round((const0 * initial_angle**3 + const1 * initial_angle**2 + const2 * initial_angle + const3),2)
-            pass 
+        try:
+            if len(result_angle) > 0:
+                initial_angle=result_angle[0]['angle']
+                initial_gravity = round((const0 * initial_angle**3 + const1 * initial_angle**2 + const2 * initial_angle + const3),2)
+        except:
+            initial_gravity=0.000000001
 
         # Get Angle data for the last hour before end date -> Final Gravity caculation
         where_sql="WHERE Recipe_id = {} and Timestamp < '{}' and Recipe_id = {} AND Timestamp > DATE_SUB('{}', INTERVAL 1 HOUR)".format(ArchiveID, End_date, ArchiveID, End_date)
@@ -540,21 +546,32 @@ class iSpindleEndpoint(CBPiExtension):
         cur.execute(sql_select)
         columns = [column[0] for column in cur.description]
         result_angle = [dict(zip(columns, row)) for row in cur.fetchall()]
-        if len(result_angle) > 0:
-            final_angle=result_angle[0]['angle']
-            final_gravity = round((const0 * final_angle**3 + const1 * final_angle**2 + const2 * final_angle + const3),2)
-    
-        attenuation=round((initial_gravity - final_gravity)*100/initial_gravity,1)
-        real_gravity = 0.1808 * initial_gravity + 0.8192 * final_gravity
-        alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
-        alcohol_by_volume = round((alcohol_by_weight / 0.795),1)
+        try:
+            if len(result_angle) > 0:
+                final_angle=result_angle[0]['angle']
+                final_gravity = round((const0 * final_angle**3 + const1 * final_angle**2 + const2 * final_angle + const3),2)
+        except:
+            final_gravity=0.000000001
+
+        try:    
+            attenuation=round((initial_gravity - final_gravity)*100/initial_gravity,1)
+            real_gravity = 0.1808 * initial_gravity + 0.8192 * final_gravity
+            alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
+            alcohol_by_volume = round((alcohol_by_weight / 0.795),1)
+        except:
+            attenuation=0
+            alcohol_by_volume=0
 
         archive_header=dict.fromkeys(['ArchiveID', 'Spindle_Name', 'Batch', 'Recipe', 'Start_date', 'End_date', 'Const0', 'Const1', 'Const2', 'Const3','Calibrated', 'Formula', 'Initial_Gravity', 'Final_Gravity', 'Attenuation', 'Alcohol_by_volume']) 
         archive_header['Spindle_Name']=Spindle_Name
         archive_header['Batch']=Batch
         archive_header['Recipe']=Recipe
-        archive_header['Start_date']=Start_date.strftime('%Y-%m-%d')
-        archive_header['End_date']=End_date.strftime('%Y-%m-%d')
+        try:
+            archive_header['Start_date']=Start_date.strftime('%Y-%m-%d')
+            archive_header['End_date']=End_date.strftime('%Y-%m-%d')
+        except:
+            archive_header['Start_date']="1970-01-01"
+            archive_header['End_date']="1970-01-01"
         archive_header['RID_END']=RID_END
         archive_header['Const0']=const0
         archive_header['Const1']=const1
@@ -628,7 +645,9 @@ class iSpindleEndpoint(CBPiExtension):
         Const1 = float(data.get('Const1'))
         Const2 = float(data.get('Const2'))
         Const3 = float(data.get('Const3'))
-        Initial_Gravity = data.get('Initial_Gravity')
+        Initial_Gravity = float(data.get('Initial_Gravity'))
+        if Initial_Gravity == 0:
+            Initial_Gravity = 0.000000001
         Start = data.get('Start_date')
         End = data.get('End_date')
         RID_END = data.get('RID_END')
@@ -883,6 +902,265 @@ class iSpindleEndpoint(CBPiExtension):
             sql_insert = "INSERT INTO Calibration (ID, const0, const1, const2, const3) VALUES ('{}', '{}', '{}', '{}', '{}')".format(id, data['const0'], data['const1'], data['const2'], data['const3'])
             cur.execute(sql_insert)
             cnx.commit()
+
+    @request_mapping(path='/getrecentdata/{days}/', method="POST", auth_required=False)
+    async def getrecentdata(self, request):
+        """
+        ---
+        description: get last data from Spindles that have send data in the last x days
+        tags:
+        - iSpindle
+        parameters:
+        - name: "days"
+          in: "path"
+          description: "Get last data from Spindle if Spindle has sent data within the last x days "
+          required: true
+          type: "integer"
+          format: "int64"
+        responses:
+            "200":
+                description: successful operation
+        """
+        days = request.match_info['days']
+        try:
+            spindle_data = await self.get_recent_data(days)
+            return  web.json_response(data=spindle_data)
+
+        except Exception as e:
+            logger.error(e)
+            return  web.json_response(status=500)
+        #logger.error(header_data)
+        
+    async def get_recent_data(self,days):
+        spindles = []
+        calibrated=[]
+        spindle_data=[]
+        spindle_id=[]
+        spindle_calibration=[]
+        cnx = mysql.connector.connect(
+            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+        cur = cnx.cursor()
+
+        #get all spindles from Data table
+        spindlenames_sql = f"SELECT DISTINCT Name FROM Data WHERE Timestamp > date_sub(NOW(), INTERVAL {days} DAY) ORDER BY Name"
+        cur.execute(spindlenames_sql)
+        spindles = cur.fetchall()
+        
+        if spindles:
+            for spindle in spindles:
+                spindle_ID_sql=f"SELECT DISTINCT ID FROM Data WHERE Name = '{spindle[0]}'AND (ID <>'' OR ID <>'0') ORDER BY Timestamp DESC LIMIT 1"
+                cur.execute(spindle_ID_sql)
+                result = cur.fetchall()
+                if result:
+                    spindle_id=int(result[0][0])
+                else:
+                    spindle_id=0
+                try:
+                    calibration_sql=f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {result[0][0]}" 
+                    cur.execute(calibration_sql)
+                    columns = [column[0] for column in cur.description] 
+                    result_archive = [dict(zip(columns, row)) for row in cur.fetchall()]
+                
+                    Const0=result_archive[0]['const0']
+                    Const1=result_archive[0]['const1'] 
+                    Const2=result_archive[0]['const2']
+                    Const3=result_archive[0]['const3']
+                    calibrated=True
+                except:
+                    Const0=0.0000000001
+                    Const1=0.0000000001
+                    Const2=0.0000000001
+                    Const3=0.0000000001
+                    calibrated=False
+
+                where_sql=(f"WHERE Name = '{spindle[0]}' \
+                            AND Timestamp > (Select MAX(Data.Timestamp) FROM Data  WHERE Data.ResetFlag = true AND Data.Name = '{spindle[0]}') \
+                            AND Timestamp < DATE_ADD((SELECT MAX(Data.Timestamp)FROM Data WHERE Data.Name = '{spindle[0]}' \
+                            AND Data.ResetFlag = true), INTERVAL 1 HOUR)")
+
+                #// query to calculate average angle for this recipe_id and timeframe
+                sql_select= f"SELECT AVG(Angle) as angle FROM Data {where_sql}"
+                cur.execute(sql_select)
+                result = cur.fetchall()
+                initial_angle=float(result[0][0])
+                initial_gravity = round((Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3),2)
+
+
+
+                sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, 'interval', rssi, gravity, recipe_id, \
+                            ({Const0}*angle*angle*angle+ {Const1}*angle*angle +{Const2}*angle + {Const3}) as Servergravity \
+                                FROM Data WHERE Name = '{spindle[0]}' ORDER BY Timestamp DESC LIMIT 1")
+                cur.execute(sql_select)
+                columns = [column[0] for column in cur.description]
+                result = [dict(zip(columns, row)) for row in cur.fetchall()]
+                if result:
+                    hours=12
+                    lasttime=result[0]['unixtime']
+                    old_gravity = await self.getgravityhoursago(spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
+                    result[0]['Delta_Gravity']=float(result[0]['Servergravity'])-old_gravity
+                    result[0]['InitialGravity']=initial_gravity
+                    try:
+                        attenuation=round((initial_gravity - float(result[0]['Servergravity']))*100/initial_gravity,1)
+                        real_gravity = 0.1808 * initial_gravity + 0.8192 * float(result[0]['Servergravity'])
+                        alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
+                        alcohol_by_volume = round((alcohol_by_weight / 0.795),1)
+                    except:
+                        attenuation=0
+                        alcohol_by_volume=0
+
+                    result[0]['Attenuation']=attenuation
+                    result[0]['ABV']=alcohol_by_volume
+                    result[0]['Calibrated']=calibrated
+                    result[0]['Const0']=Const0
+                    result[0]['Const1']=Const1
+                    result[0]['Const2']=Const2
+                    result[0]['Const3']=Const3
+
+                    currentspindle={'label': spindle[0], 'value': spindle_id, 'data': result[0] }
+                    spindle_data.append(currentspindle)
+                else:
+                    currentspindle={'label': spindle[0], 'value': spindle_id, 'data': {} }
+                    spindle_data.append(currentspindle)
+
+        return spindle_data
+
+    async def getgravityhoursago(self,spindle, Const0, Const1, Const2, Const3, last, hours=12):
+        cnx = mysql.connector.connect(
+            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+        cur = cnx.cursor()
+        
+        sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, 'interval', rssi, gravity \
+                    FROM Data \
+                    WHERE Name = '{spindle}' AND Timestamp > DATE_SUB(FROM_UNIXTIME({last}), INTERVAL {hours} HOUR) limit 1")
+        cur.execute(sql_select)
+        columns = [column[0] for column in cur.description]
+        result = [dict(zip(columns, row)) for row in cur.fetchall()]       
+        if result:
+            angle=result[0]['angle']
+            old_gravity=round((Const0 * angle**3 + Const1 * angle**2 + Const2 * angle + Const3),2)
+            return old_gravity
+        else:
+            return 0
+
+    @request_mapping(path='/resetspindlerecipe/{id}/', method="POST", auth_required=False)
+    async def resetspindlerecipe(self, request):
+        """
+        ---
+        description: Save Calibration for specified spindle id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "id"
+          in: "path"
+          description: "Spindle ID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - in: body
+          name: body
+          description: dict of Spindlename, Batchid, Recipeid
+          required: true
+          schema:
+            type: object
+
+            properties:
+              Spindlename:
+                type: "string"
+                required: true
+              Batchid:
+                type: "string"
+                required: true
+              Recipeid:
+                type: "string"
+                required: true                            
+        example:
+            Spindlename: "iSpindle001"
+            Batchid: "2501"
+            RecipeID: "Kölsch"
+
+        responses:
+            "200":
+                description: successful operation
+        """        
+        data = await request.json()
+        id = request.match_info['id']
+        await self.reset_spindle_recipe(id, data)
+
+        return  web.json_response(status=200)
+
+    async def reset_spindle_recipe(self, id, data):
+        cnx = mysql.connector.connect(
+                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+        cur = cnx.cursor()
+        spindlename=data['Spindlename']
+        batchid=data['BatchID']
+        recipename=data['RecipeName']
+        timestamp = datetime.datetime.now()
+        time= timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        const0 = float(data['const0'])
+        const1 = float(data['const1'])
+        const2 = float(data['const2'])
+        const3 = float(data['const3'])
+        calibrated=data['calibrated']
+
+
+        sql_select=f"SELECT max(Recipe_ID) as recipeid FROM Archive where Name='{spindlename}'"
+        cur.execute(sql_select)
+        columns = [column[0] for column in cur.description]
+        result = [dict(zip(columns, row)) for row in cur.fetchall()]
+        recipeid=result[0]['recipeid']
+
+
+
+        if recipeid:
+            timestamp_2 = datetime.datetime.now()
+            time= timestamp_2.strftime('%Y-%m-%d %H:%M:%S')
+            if calibrated == True:
+                update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
+                                        WHERE Recipe_ID = '{recipeid}'")
+        
+            else:
+                update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = NULL, const1 = NULL, const2 = NULL, const3 = NULL \
+                                        WHERE Recipe_ID = '{recipeid}'")
+            logging.error(update_archive_table)
+            cur.execute(update_archive_table)
+            cnx.commit()
+
+
+            #write to archive table     
+        if calibrated == True:
+            const0 = float(data['const0'])
+            const1 = float(data['const1'])
+            const2 = float(data['const2'])
+            const3 = float(data['const3'])
+ 
+            entry_recipe_table_sql = (f"INSERT INTO `Archive` \
+                                (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`, `const1`, `const2`, `const3`) \
+                                VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, '{const0}', '{const1}', '{const2}', '{const3}')")
+        
+        else:
+            entry_recipe_table_sql = (f"INSERT INTO `Archive` \
+                                    (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`,`const1`, `const2`, `const3`) \
+                                    VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, NULL, NULL, NULL, NULL)")
+
+        logging.error(entry_recipe_table_sql)
+        cur.execute(entry_recipe_table_sql)
+        cnx.commit()
+
+        #write to archive table  
+        get_latest_archive_id_sql=f"SELECT max(Recipe_ID) FROM Archive where Name='{spindlename}'"
+        cur.execute(get_latest_archive_id_sql)
+        columns = [column[0] for column in cur.description]
+        result = [dict(zip(columns, row)) for row in cur.fetchall()]
+
+        new_id=[result[0]['max(Recipe_ID)']]
+
+        sql_select=(f"INSERT INTO Data (Timestamp, Name, ID, Angle, Temperature, Battery, resetFlag, RSSI, Recipe, Recipe_ID) \
+                    VALUES ('{time}','{spindlename}', {id}, 0, 0, 0, true, 0, '{recipename}','{new_id[0]}')")
+        logging.error(sql_select)
+        cur.execute(sql_select)
+        cnx.commit()
+        pass 
 
 
 def setup(cbpi):
