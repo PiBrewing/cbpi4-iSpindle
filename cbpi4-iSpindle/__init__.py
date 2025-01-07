@@ -982,7 +982,10 @@ class iSpindleEndpoint(CBPiExtension):
                 sql_select= f"SELECT AVG(Angle) as angle FROM Data {where_sql}"
                 cur.execute(sql_select)
                 result = cur.fetchall()
-                initial_angle=float(result[0][0])
+                try:
+                    initial_angle=float(result[0][0])
+                except:
+                    initial_angle=0.0000000001
                 initial_gravity = round((Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3),2)
 
 
@@ -994,10 +997,13 @@ class iSpindleEndpoint(CBPiExtension):
                 columns = [column[0] for column in cur.description]
                 result = [dict(zip(columns, row)) for row in cur.fetchall()]
                 if result:
-                    hours=12
-                    lasttime=result[0]['unixtime']
-                    old_gravity = await self.getgravityhoursago(spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
-                    result[0]['Delta_Gravity']=float(result[0]['Servergravity'])-old_gravity
+                    try:
+                        hours=12
+                        lasttime=result[0]['unixtime']
+                        old_gravity = await self.getgravityhoursago(spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
+                        result[0]['Delta_Gravity']=float(result[0]['Servergravity'])-old_gravity
+                    except:
+                        result[0]['Delta_Gravity']=0
                     result[0]['InitialGravity']=initial_gravity
                     try:
                         attenuation=round((initial_gravity - float(result[0]['Servergravity']))*100/initial_gravity,1)
@@ -1122,7 +1128,7 @@ class iSpindleEndpoint(CBPiExtension):
             else:
                 update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = NULL, const1 = NULL, const2 = NULL, const3 = NULL \
                                         WHERE Recipe_ID = '{recipeid}'")
-            logging.error(update_archive_table)
+            #logging.error(update_archive_table)
             cur.execute(update_archive_table)
             cnx.commit()
 
@@ -1143,7 +1149,7 @@ class iSpindleEndpoint(CBPiExtension):
                                     (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`,`const1`, `const2`, `const3`) \
                                     VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, NULL, NULL, NULL, NULL)")
 
-        logging.error(entry_recipe_table_sql)
+        #logging.error(entry_recipe_table_sql)
         cur.execute(entry_recipe_table_sql)
         cnx.commit()
 
@@ -1157,7 +1163,7 @@ class iSpindleEndpoint(CBPiExtension):
 
         sql_select=(f"INSERT INTO Data (Timestamp, Name, ID, Angle, Temperature, Battery, resetFlag, RSSI, Recipe, Recipe_ID) \
                     VALUES ('{time}','{spindlename}', {id}, 0, 0, 0, true, 0, '{recipename}','{new_id[0]}')")
-        logging.error(sql_select)
+        #logging.error(sql_select)
         cur.execute(sql_select)
         cnx.commit()
         pass 
