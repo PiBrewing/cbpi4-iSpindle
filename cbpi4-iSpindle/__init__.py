@@ -481,6 +481,7 @@ class iSpindleEndpoint(CBPiExtension):
         result_archive = [dict(zip(columns, row)) for row in cur.fetchall()]
 
         Spindle_Name=result_archive[0]['Name']
+        SpindleID=result_archive[0]['ID']
         Batch=result_archive[0]['Batch']
         Recipe=result_archive[0]['Recipe']
         Start_date=result_archive[0]['Start_date']
@@ -562,8 +563,9 @@ class iSpindleEndpoint(CBPiExtension):
             attenuation=0
             alcohol_by_volume=0
 
-        archive_header=dict.fromkeys(['ArchiveID', 'Spindle_Name', 'Batch', 'Recipe', 'Start_date', 'End_date', 'Const0', 'Const1', 'Const2', 'Const3','Calibrated', 'Formula', 'Initial_Gravity', 'Final_Gravity', 'Attenuation', 'Alcohol_by_volume']) 
+        archive_header=dict.fromkeys(['ArchiveID', 'Spindle_Name', 'SpindleID', 'Batch', 'Recipe', 'Start_date', 'End_date', 'Const0', 'Const1', 'Const2', 'Const3','Calibrated', 'Formula', 'Initial_Gravity', 'Final_Gravity', 'Attenuation', 'Alcohol_by_volume']) 
         archive_header['Spindle_Name']=Spindle_Name
+        archive_header['SpindleID']=SpindleID
         archive_header['Batch']=Batch
         archive_header['Recipe']=Recipe
         try:
@@ -1167,6 +1169,64 @@ class iSpindleEndpoint(CBPiExtension):
         cur.execute(sql_select)
         cnx.commit()
         pass 
+
+    @request_mapping(path='/transfercalibration/{SpindleID}/{ArchiveID}/', method="POST", auth_required=False)
+    async def transfercalibration(self, request):
+        """
+        ---
+        description: Transfer current Calibration from SpindleID to ArchiveID
+        tags:
+        - iSpindle
+        parameters:
+        - name: "SpindleID"
+          in: "path"
+          description: "Spindle ID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - name: "ArchiveID"
+          in: "path"
+          description: "Archive ID"
+          required: true
+          type: "integer"
+          format: "int64"
+
+        responses:
+            "200":
+                description: successful operation
+        """
+        SpindleID = request.match_info['SpindleID']
+        ArchiveID = request.match_info['ArchiveID']
+        status= await self.transfer_calibration(SpindleID, ArchiveID)
+        return  web.json_response(status=status)
+    
+    async def transfer_calibration(self, SpindleID, ArchiveID):
+        data=[]
+        spindle_calibration = await self.get_calibration()
+        for spindle in spindle_calibration:
+            if spindle['ID'] == int(SpindleID):
+                data=spindle['data']
+
+        if data:
+            const0=data['const0']
+            const1=data['const1']
+            const2=data['const2']
+            const3=data['const3']
+            calibrated=data['calibrated']
+            if calibrated == True:
+                cnx = mysql.connector.connect(
+                    user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+                cur = cnx.cursor()                         
+                update_archive_table = (f"UPDATE Archive Set const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
+                                        WHERE Recipe_ID = '{ArchiveID}'")
+                cur.execute(update_archive_table) 
+                cnx.commit()
+                return 200
+            else:
+                return 500  
+
+        else:
+            return 500
 
 
 def setup(cbpi):
