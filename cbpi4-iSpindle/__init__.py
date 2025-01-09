@@ -988,9 +988,7 @@ class iSpindleEndpoint(CBPiExtension):
                     initial_angle=float(result[0][0])
                 except:
                     initial_angle=0.0000000001
-                initial_gravity = round((Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3),2)
-
-
+                initial_gravity = (Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3)
 
                 sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, 'interval', rssi, gravity, recipe_id, \
                             ({Const0}*angle*angle*angle+ {Const1}*angle*angle +{Const2}*angle + {Const3}) as Servergravity \
@@ -1003,19 +1001,20 @@ class iSpindleEndpoint(CBPiExtension):
                         hours=12
                         lasttime=result[0]['unixtime']
                         old_gravity = await self.getgravityhoursago(spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
-                        result[0]['Delta_Gravity']=float(result[0]['Servergravity'])-old_gravity
+                        result[0]['Delta_Gravity']=(float(result[0]['Servergravity'])-old_gravity)
                     except:
                         result[0]['Delta_Gravity']=0
                     result[0]['InitialGravity']=initial_gravity
                     try:
-                        attenuation=round((initial_gravity - float(result[0]['Servergravity']))*100/initial_gravity,1)
+                        attenuation=(initial_gravity - float(result[0]['Servergravity']))*100/initial_gravity
                         real_gravity = 0.1808 * initial_gravity + 0.8192 * float(result[0]['Servergravity'])
                         alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
-                        alcohol_by_volume = round((alcohol_by_weight / 0.795),1)
+                        alcohol_by_volume = (alcohol_by_weight / 0.795)
                     except:
                         attenuation=0
                         alcohol_by_volume=0
 
+                    result[0]['unixtime']=datetime.datetime.fromtimestamp(result[0]['unixtime']).strftime('%Y-%m-%d %H:%M:%S')
                     result[0]['Attenuation']=attenuation
                     result[0]['ABV']=alcohol_by_volume
                     result[0]['Calibrated']=calibrated
@@ -1023,6 +1022,15 @@ class iSpindleEndpoint(CBPiExtension):
                     result[0]['Const1']=Const1
                     result[0]['Const2']=Const2
                     result[0]['Const3']=Const3
+
+                    recipe_id=result[0]['recipe_id']
+
+                    sql_select=(f"SELECT batch FROM Archive WHERE Recipe_ID = {recipe_id}")
+
+                    cur.execute(sql_select)
+                    columns = [column[0] for column in cur.description]
+                    result_batch = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    result[0]['BatchID']=result_batch[0]['batch']
 
                     currentspindle={'label': spindle[0], 'value': spindle_id, 'data': result[0] }
                     spindle_data.append(currentspindle)
