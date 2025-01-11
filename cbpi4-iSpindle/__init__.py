@@ -353,35 +353,45 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        logging.info(data)
-        time = time.time()
+        logging.error(data)
+        datatime = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
         angle = data['angle']
         battery = data['battery']
-        spindle_id = data['ID']
-        temp_units = data['temp_units']
 
         try:
             rssi = data['RSSI']
-            interval = data['interval']
-            gravity = data['gravity']
         except:
             rssi = 0
+        try:
+            interval = data['interval']
+        except:     
             interval = 0
+        try:
+            gravity = data['gravity']
+        except:
             gravity = 0
+        try:
+            spindle_id = data['ID']
+        except:
+            spindle_id = 0
+        try:
+            temp_units = data['temp_units']
+        except:
+            temp_units = 'C'
         try:
             user_token = data['token']
         except:
             user_token = '*'
 
-        cache[key] = {'Time': time,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
+        cache[key] = {'Time': datatime,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
 
         if spindle_SQL == "Yes":
-            await self.send_data_to_sql(time, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token)
+            await self.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token)
             pass
 
-    async def send_data_to_sql(self, time, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token):
+    async def send_data_to_sql(self, datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token):
         cnx = mysql.connector.connect(
             user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
         cur = cnx.cursor()
