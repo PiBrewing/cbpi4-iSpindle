@@ -353,17 +353,94 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        logging.info(data)
+        logging.error(data)
         time = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
         angle = data['angle']
         battery = data['battery']
+        spindle_id = data['ID']
+        temp_units = data['temp_units']
+
         try:
             rssi = data['RSSI']
+            interval = data['interval']
+            gravity = data['gravity']
         except:
             rssi = 0
+            interval = 0
+            gravity = 0
+        try:
+            user_token = data['token']
+        except:
+            user_token = '*'
+
         cache[key] = {'Time': time,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
+
+        if spindle_SQL == "Yes":
+            await self.send_data_to_sql(time, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token)
+            pass
+
+    async def send_data_to_sql(self, time, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token):
+        cnx = mysql.connector.connect(
+            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+        cur = cnx.cursor()
+
+        #get current recipe name
+        recipe = 'n/a'
+        try:
+            sqlselect = (f"SELECT Data.Recipe FROM Data WHERE Data.Name = '{key}' AND Data.Timestamp >= (SELECT max( Data.Timestamp )FROM Data WHERE Data.Name = '{key}' AND Data.ResetFlag = true) LIMIT 1;")
+            cur.execute(sqlselect)
+            recipe_names = cur.fetchone()
+            recipe = str(recipe_names[0])
+        except Exception as e:
+            logging.error(' Recipe Name not found - Database Error: ' + str(e))
+        logging.error('Recipe Name: ' + recipe)
+
+        #get current recipe id
+        recipe_id = 0
+        try:
+            sqlselect = f"SELECT max(Archive.Recipe_ID) FROM Archive WHERE Archive.Name='{key}';"
+            cur.execute(sqlselect)
+            recipe_ids = cur.fetchone()
+            recipe_id = str(recipe_ids[0])
+            logging.error('Recipe_ID: Done. ' + recipe_id)
+        except Exception as e:
+            logging.error(' Recipe_ID not found - Database Error: ' + str(e))
+        if recipe_id == "None":
+            recipe_id = 0
+
+        #logging.error('Recipe_ID: ' + recipe_id)
+        #logging.error('Recipe: ' + recipe)
+        #logging.error('Name: ' + key)
+        #logging.error('Timestamp: ' + str(time))
+        #logging.error('Temperature: ' + str(temp))
+        #logging.error('Angle: ' + str(angle))
+        #logging.error('Gravity: ' + str(gravity))
+        #logging.error('Battery: ' + str(battery))
+        #logging.error('RSSI: ' + str(rssi))
+        #logging.error('Interval: ' + str(interval))
+        #logging.error('Token: ' + str(user_token))
+        #logging.error('Spindle_ID: ' + str(spindle_id))
+
+
+        fieldlist = ['Timestamp', 'Name', 'ID', 'Angle', 'Temperature', 'Battery', 'Gravity', 'Recipe', 'Recipe_ID', 'RSSI', '`Interval`', 'UserToken']
+        valuelist = [datetime.datetime.now(), key, spindle_id, angle, temp, battery, gravity, recipe, recipe_id, rssi, interval, str(user_token)]
+  
+        fieldstr = ', '.join(fieldlist)
+        valuestr = ', '.join(['%s' for x in valuelist])
+
+        add_sql = f"INSERT INTO Data ({fieldstr}) VALUES ({valuestr})"
+        #logging.error(add_sql)
+        #logging.error(valuelist)
+        try:
+            cur.execute(add_sql, valuelist)
+            cnx.commit()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+
+
+
 
 
     @request_mapping(path='/gettemp/{SpindleID}', method="POST", auth_required=False)
