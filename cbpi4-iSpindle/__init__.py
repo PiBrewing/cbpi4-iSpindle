@@ -353,7 +353,7 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        logging.error(data)
+        logging.info(data)
         time = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
@@ -395,7 +395,7 @@ class iSpindleEndpoint(CBPiExtension):
             recipe = str(recipe_names[0])
         except Exception as e:
             logging.error(' Recipe Name not found - Database Error: ' + str(e))
-        logging.error('Recipe Name: ' + recipe)
+        logging.info('Recipe Name: ' + recipe)
 
         #get current recipe id
         recipe_id = 0
@@ -404,7 +404,7 @@ class iSpindleEndpoint(CBPiExtension):
             cur.execute(sqlselect)
             recipe_ids = cur.fetchone()
             recipe_id = str(recipe_ids[0])
-            logging.error('Recipe_ID: Done. ' + recipe_id)
+            logging.info('Recipe_ID: Done. ' + recipe_id)
         except Exception as e:
             logging.error(' Recipe_ID not found - Database Error: ' + str(e))
         if recipe_id == "None":
@@ -431,8 +431,8 @@ class iSpindleEndpoint(CBPiExtension):
         valuestr = ', '.join(['%s' for x in valuelist])
 
         add_sql = f"INSERT INTO Data ({fieldstr}) VALUES ({valuestr})"
-        #logging.error(add_sql)
-        #logging.error(valuelist)
+        logging.info(add_sql)
+        logging.info(valuelist)
         try:
             cur.execute(add_sql, valuelist)
             cnx.commit()
