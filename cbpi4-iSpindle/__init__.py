@@ -18,6 +18,7 @@ import mysql.connector
 import datetime
 from json import JSONEncoder
 from pandas import DataFrame
+import urllib3
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,8 @@ class iSpindleConfig(CBPiExtension):
 
     async def iSpindle_config(self):
         global spindledata, spindle_SQL, spindle_SQL_HOST, spindle_SQL_DB, spindle_SQL_TABLE, spindle_SQL_USER, spindle_SQL_PASSWORD, spindle_SQL_PORT, parametercheck
+        global brewfatheraddr, brewfatherport, brewfathersuffix, brewfathertoken, brewfather_enable
+
         parametercheck=False
         spindledata = self.cbpi.config.get("spindledata", None)
         if spindledata is None:
@@ -95,6 +98,106 @@ class iSpindleConfig(CBPiExtension):
                                                                                                             
                 except:
                     logger.warning('Unable to update database')
+
+        brewfather_enable = self.cbpi.config.get("brewfather_enable", None)
+        if brewfather_enable is None:
+            logger.warning("INIT Brewfather enable")
+            try:
+                await self.cbpi.config.add("brewfather_enable", "No", type=ConfigType.SELECT, description="Enable Brewfather data transfer",
+                                                                                                    source=self.name,
+                                                                                                    options= [{"label": "No","value": "No"},
+                                                                                                            {"label": "Yes", "value": "Yes"}])
+                                                                                                            
+                brewfather_enable = self.cbpi.config.get("brewfather_enable", "No")
+            except:
+                logger.warning('Unable to update database')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("brewfather_enable", brewfather_enable, type=ConfigType.SELECT, description="Enable Brewfather data transfer",
+                                                                                                    source=self.name,
+                                                                                                    options= [{"label": "No","value": "No"},
+                                                                                                            {"label": "Yes", "value": "Yes"}])
+                                                                                                            
+                except:
+                    logger.warning('Unable to update database')
+
+        brewfatheraddr = self.cbpi.config.get("brewfatheraddr", None)
+        if brewfatheraddr is None:
+            logger.warning("INIT Brewfather address")
+            try:
+                await self.cbpi.config.add("brewfatheraddr", "", type=ConfigType.STRING, description="Brewfather address",
+                                                                                                    source=self.name)
+                                                                                                            
+                brewfatheraddr = self.cbpi.config.get("brewfatheraddr", "")
+            except:
+                logger.warning('Unable to update database')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("brewfatheraddr", brewfatheraddr, type=ConfigType.STRING, description="Brewfather address",
+                                                                                                    source=self.name)
+                                                                                                            
+                except:
+                    logger.warning('Unable to update database')
+
+        brewfatherport = self.cbpi.config.get("brewfatherport", None)
+        if brewfatherport is None:
+            logger.warning("INIT Brewfather port")
+            try:
+                await self.cbpi.config.add("brewfatherport", "", type=ConfigType.NUMBER, description="Brewfather port",
+                                                                                                    source=self.name)
+                                                                                                            
+                brewfatherport = self.cbpi.config.get("brewfatherport", "")
+            except:
+                logger.warning('Unable to update database')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("brewfatherport", brewfatherport, type=ConfigType.NUMBER, description="Brewfather port",
+                                                                                                    source=self.name)
+                                                                                                            
+                except:
+                    logger.warning('Unable to update database')
+
+        brewfathersuffix = self.cbpi.config.get("brewfathersuffix", None)
+        if brewfathersuffix is None:
+            logger.warning("INIT Brewfather suffix")
+            try:
+                await self.cbpi.config.add("brewfathersuffix", "", type=ConfigType.STRING, description="Brewfather suffix",
+                                                                                                    source=self.name)
+                                                                                                            
+                brewfathersuffix = self.cbpi.config.get("brewfathersuffix", "")
+            except:
+                logger.warning('Unable to update database')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("brewfathersuffix", brewfathersuffix, type=ConfigType.STRING, description="Brewfather suffix",
+                                                                                                    source=self.name)
+                                                                                                            
+                except:
+                    logger.warning('Unable to update database')
+
+        brewfathertoken = self.cbpi.config.get("brewfathertoken", None)
+        if brewfathertoken is None:
+            logger.warning("INIT Brewfather token")
+            try:
+                await self.cbpi.config.add("brewfathertoken", "", type=ConfigType.STRING, description="Brewfather token",
+                                                                                                    source=self.name)
+                                                                                                            
+                brewfathertoken = self.cbpi.config.get("brewfathertoken", "")
+            except:
+                logger.warning('Unable to update database')
+            else:   
+                if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                    try:
+                        await self.cbpi.config.add("brewfathertoken", brewfathertoken, type=ConfigType.STRING, description="Brewfather token",
+                                                                                                    source=self.name)
+                                                                                                            
+                    except:
+                        logger.warning('Unable to update database')
+        
 
         spindle_SQL = self.cbpi.config.get("spindle_SQL", None)  # 1 to enable output to MySQL database
         if spindle_SQL is None:
@@ -389,7 +492,9 @@ class iSpindleEndpoint(CBPiExtension):
 
         if spindle_SQL == "Yes":
             await self.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token)
-            pass
+        
+        if brewfather_enable == "Yes":
+            await self.send_brewfather_data(key, spindle_id, angle, temp, gravity, battery,  user_token)
 
     async def send_data_to_sql(self, datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token):
         cnx = mysql.connector.connect(
@@ -449,9 +554,31 @@ class iSpindleEndpoint(CBPiExtension):
         except Exception as e:
             logging.error('Database Error: ' + str(e))
 
+    async def send_brewfather_data(self, key, spindle_id, angle, temp, gravity, battery, user_token):
+        try:
+            outdata = {
+                    "ID": spindle_id,
+                    "angle": angle,
+                    "battery": battery,
+                    "gravity": gravity,
+                    "name": key + brewfathersuffix,
+                    "temperature": temp,
+                    "token": user_token
+                    }
+            url = 'http://' + brewfatheraddr + ':' + str(brewfatherport) + '/ispindel?id='+brewfathertoken
+            out = json.dumps(outdata).encode('utf-8')
+            headers = {'Content-Type': 'application/json', 'User-Agent': key}
 
+            http=urllib3.PoolManager()
+            request = http.request('POST', url, headers=headers, body=out)
+            logging.info('Brewfather Data sent: ' + str(out))
+            if request.status != 200:
+                logging.error('Brewfather Response: ' + str(request.status))
+            logging.info('Brewfather Response: ' + str(request.status))
 
-
+        except Exception as e:
+            logging.error('Brewfather Error: ' + str(e))
+        
 
     @request_mapping(path='/gettemp/{SpindleID}', method="POST", auth_required=False)
     async def get_fermenter_temp(self, request):
