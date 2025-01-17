@@ -14,6 +14,7 @@ import time
 import json
 from cbpi.api.config import ConfigType
 from cbpi.api.dataclasses import DataType
+from cbpi.api.dataclasses import NotificationAction, NotificationType
 import mysql.connector
 import datetime
 from json import JSONEncoder
@@ -74,6 +75,7 @@ class iSpindleConfig(CBPiExtension):
     async def iSpindle_config(self):
         global spindledata, spindle_SQL, spindle_SQL_HOST, spindle_SQL_DB, spindle_SQL_TABLE, spindle_SQL_USER, spindle_SQL_PASSWORD, spindle_SQL_PORT, parametercheck
         global brewfatheraddr, brewfatherport, brewfathersuffix, brewfathertoken, brewfather_enable
+        global dailyalarm, statusupdate
 
         parametercheck=False
         spindledata = self.cbpi.config.get("spindledata", None)
@@ -336,6 +338,129 @@ class iSpindleConfig(CBPiExtension):
                 except:
                     logger.warning('Unable to update database')
 
+        dailyalarm = self.cbpi.config.get("dailyalarm", None)
+        if dailyalarm is None:
+            logger.warning("INIT Spindle daily alarm")
+            try:
+                await self.cbpi.config.add("dailyalarm", "0", type=ConfigType.SELECT, description="Time for daily Spindle alarm", 
+                                                                                                        source=self.name,
+                                                                                                      options=[{"label": "0", "value": 0},
+                                                                                                        {"label": "1", "value": 1},
+                                                                                                        {"label": "2", "value": 2},
+                                                                                                        {"label": "3", "value": 3},
+                                                                                                        {"label": "4", "value": 4},
+                                                                                                        {"label": "5", "value": 5},
+                                                                                                        {"label": "6", "value": 6},
+                                                                                                        {"label": "7", "value": 7},
+                                                                                                        {"label": "8", "value": 8},
+                                                                                                        {"label": "9", "value": 9},
+                                                                                                        {"label": "10", "value": 10},
+                                                                                                        {"label": "11", "value": 11},
+                                                                                                        {"label": "12", "value": 12},
+                                                                                                        {"label": "13", "value": 13},
+                                                                                                        {"label": "14", "value": 14},
+                                                                                                        {"label": "15", "value": 15},
+                                                                                                        {"label": "16", "value": 16},
+                                                                                                        {"label": "17", "value": 17},
+                                                                                                        {"label": "18", "value": 18},
+                                                                                                        {"label": "19", "value": 19},
+                                                                                                        {"label": "20", "value": 20},
+                                                                                                        {"label": "21", "value": 21},
+                                                                                                        {"label": "22", "value": 22},
+                                                                                                        {"label": "23", "value": 23}])
+                                                                                                    
+            except:
+                logger.warning('Unable to update config')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("dailyalarm", dailyalarm, type=ConfigType.SELECT, description="Time for daily Spindle alarm", 
+                                                                                                        source=self.name,
+                                                                                                      options=[{"label": "0", "value": 0},
+                                                                                                        {"label": "1", "value": 1},
+                                                                                                        {"label": "2", "value": 2},
+                                                                                                        {"label": "3", "value": 3},
+                                                                                                        {"label": "4", "value": 4},
+                                                                                                        {"label": "5", "value": 5},
+                                                                                                        {"label": "6", "value": 6},
+                                                                                                        {"label": "7", "value": 7},
+                                                                                                        {"label": "8", "value": 8},
+                                                                                                        {"label": "9", "value": 9},
+                                                                                                        {"label": "10", "value": 10},
+                                                                                                        {"label": "11", "value": 11},
+                                                                                                        {"label": "12", "value": 12},
+                                                                                                        {"label": "13", "value": 13},
+                                                                                                        {"label": "14", "value": 14},
+                                                                                                        {"label": "15", "value": 15},
+                                                                                                        {"label": "16", "value": 16},
+                                                                                                        {"label": "17", "value": 17},
+                                                                                                        {"label": "18", "value": 18},
+                                                                                                        {"label": "19", "value": 19},
+                                                                                                        {"label": "20", "value": 20},
+                                                                                                        {"label": "21", "value": 21},
+                                                                                                        {"label": "22", "value": 22},
+                                                                                                        {"label": "23", "value": 23}])
+
+                except:
+                    logger.warning('Unable to update config')
+
+        statusupdate = self.cbpi.config.get("statusupdate", None)
+        if statusupdate is None:
+            logger.warning("INIT Spindle status update")
+            try:
+                await self.cbpi.config.add("statusupdate", "No", type=ConfigType.SELECT, description="Send daily status update from active iSpindle", 
+                                                                                                        source=self.name,
+                                                                                                      options=[{"label": "No", "value": "No"},
+                                                                                                        {"label": "Yes", "value": "Yes"}])                                                                                                    
+            except:
+                logger.warning('Unable to update config')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("statusupdate", statusupdate, type=ConfigType.SELECT, description="Send daily status update from active iSpindle", 
+                                                                                                        source=self.name,
+                                                                                                      options=[{"label": "No", "value": "No"},
+                                                                                                        {"label": "Yes", "value": "Yes"}])                                                                                                    
+                except:
+                    logger.warning('Unable to update config')
+
+        alarmlow = self.cbpi.config.get("alarmlow", None)
+        if alarmlow is None:
+            logger.warning("INIT Spindle low alarm")
+            try:
+                await self.cbpi.config.add("alarmlow", 0, type=ConfigType.NUMBER, description="Low alarm value for iSpindle",
+                                                                                                    source=self.name)
+                                                                                                            
+                alarmlow = self.cbpi.config.get("alarmlow", 0)
+            except:
+                logger.warning('Unable to update database')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("alarmlow", alarmlow, type=ConfigType.NUMBER, description="Low alarm value for iSpindle",
+                                                                                                    source=self.name)
+                                                                                                            
+                except:
+                    logger.warning('Unable to update database')
+
+        alarmsvg = self.cbpi.config.get("alarmsvg", None)
+        if alarmsvg is None:
+            logger.warning("INIT Spindle attenuation alarm")
+            try:
+                await self.cbpi.config.add("alarmsvg", 100, type=ConfigType.NUMBER, description="Attenuation alarm value for iSpindle",
+                                                                                                    source=self.name)
+                                                                                                            
+                alarmsvg = self.cbpi.config.get("alarmsvg", 100)
+            except:
+                logger.warning('Unable to update database')
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add("alarmsvg", alarmsvg, type=ConfigType.NUMBER, description="Attenuation alarm value for iSpindle",
+                                                                                                    source=self.name)
+                                                                                                            
+                except:
+                    logger.warning('Unable to update database')
 
         if self.iSpindle_update == None or self.iSpindle_update != self.version:
             try:
@@ -456,7 +581,7 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        logging.error(data)
+        #logging.error(data)
         datatime = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
@@ -495,6 +620,101 @@ class iSpindleEndpoint(CBPiExtension):
         
         if brewfather_enable == "Yes":
             await self.send_brewfather_data(key, spindle_id, angle, temp, gravity, battery,  user_token)
+
+        if statusupdate == "Yes":
+            alarmtime=self.cbpi.config.get("dailyalarm", "6")
+            timestatuslow = datetime.time(int(alarmtime)-1, 45)
+            timestatushigh = datetime.time(int(alarmtime), 15)
+            currentdate = datetime.datetime.now()
+            currenttime = datetime.datetime.time(currentdate)
+            if currenttime >= timestatuslow and currenttime < timestatushigh:
+                notificationsent = await self.check_mail_sent('SentStatus', '1')
+                if not notificationsent:
+                    await self.send_status_update()
+                    await self.write_mail_sent('SentStatus', '1')
+            else:
+                await self.delete_mail_sent('SentStatus', '1')
+
+        await self.send_alarm(key, spindle_id)
+   
+        
+    async def send_alarm(self, key, spindle_id):
+        alarmlow = float(self.cbpi.config.get("alarmlow", 0))
+        alarmsvg = self.cbpi.config.get("alarmsvg", 100)
+        result = await self.get_recent_data(1)
+        body = '<br/><b>Date:</b> {}' +\
+                '<br/><b>ID:</b> {}' +\
+                '<br/><b>Angle:</b> {}' + \
+                '<br/><b>Initial Gravity Plato:</b> {}' + \
+                '<br/><b>Current Gravity:</b> {}' + \
+                '<br/><b>Delta Gravity (12 hrs):</b> {}' + \
+                '<br/><b>Apparent Attenuation:</b> {}' + \
+                '<br/><b>Alcohol by Volume %:</b> {}' + \
+                '<br/><b>Temperature:</b> {}' +  \
+                '<br/><b>Battery:</b> {}' + \
+                '<br/><b>Recipe name:</b> {}' + \
+                '<br/><br/>'
+
+        for spindle in result:
+            if spindle['label'] == key:
+                data=spindle['data']
+                #logger.error('Data: ' + str(data))
+                if float(data['Servergravity']) < alarmlow:
+                    alarmlowsent = await self.check_mail_sent('SentAlarmLow', spindle_id)
+                    #logger.error('AlarmLow: ' + str(alarmlowsent))
+                    if not alarmlowsent:
+                        try:
+                            content=body.format(data['unixtime'], spindle_id, round(float(data['angle']),1), round(float(data['InitialGravity']),1), round(float(data['Servergravity']),1), round(float(data['Delta_Gravity']),1), round(float(data['Attenuation']),1), round(float(data['ABV']),1), round(float(data['temperature']),1), round(float(data['battery']),2), data['recipe'])                            
+                            self.cbpi.notify(f"Low Gravity Alarm from Spindle {str(spindle['label'])}", str(content), NotificationType.INFO, action=[NotificationAction("OK", self.Confirm)])
+                        except Exception as e:
+                            logging.error('Error sending alarm: ' + str(e))
+                        await self.write_mail_sent('SentAlarmLow', spindle_id, spindle['label'])
+                        pass
+                if float(data['Attenuation']) > alarmsvg:
+                    alarmsvgsent = await self.check_mail_sent('SentAlarmSVG', spindle_id)
+                    if not alarmsvgsent:
+                        try:
+                            content=body.format(data['unixtime'], spindle_id, round(float(data['angle']),1), round(float(data['InitialGravity']),1), round(float(data['Servergravity']),1), round(float(data['Delta_Gravity']),1), round(float(data['Attenuation']),1), round(float(data['ABV']),1), round(float(data['temperature']),1), round(float(data['battery']),2), data['recipe'])                            
+                            self.cbpi.notify(f"Attenuation Alarm from Spindle {str(spindle['label'])}", str(body), NotificationType.INFO, action=[NotificationAction("OK", self.Confirm)])
+                        except Exception as e:
+                            logging.error('Error sending alarm: ' + str(e))
+                        await self.write_mail_sent('SentAlarmSVG', spindle_id, spindle['label'])
+                        pass
+                    
+        pass
+            
+    async def Confirm(self, **kwargs):
+        pass
+
+    async def send_status_update(self):
+        message=""
+        body = '<br/><b>Name:</b> {}' +\
+                '<br/><b>Date:</b> {}' +\
+                '<br/><b>Angle:</b> {}' + \
+                '<br/><b>Initial Gravity Plato:</b> {}' + \
+                '<br/><b>Current Gravity:</b> {}' + \
+                '<br/><b>Delta Gravity (12 hrs):</b> {}' + \
+                '<br/><b>Apparent Attenuation:</b> {}' + \
+                '<br/><b>Alcohol by Volume %:</b> {}' + \
+                '<br/><b>Temperature:</b> {}' +  \
+                '<br/><b>Battery:</b> {}' + \
+                '<br/><b>Recipe name:</b> {}' + \
+                '<br/><br/>'
+        try:
+            result = await self.get_recent_data(3)
+            #logging.error('Status Update: ' + str(result))
+            try:
+                for spindle in result:
+                    data=spindle['data']
+                    content=body.format(spindle['label'],data['unixtime'], round(float(data['angle']),1), round(float(data['InitialGravity']),1), round(float(data['Servergravity']),1), round(float(data['Delta_Gravity']),1), round(float(data['Attenuation']),1), round(float(data['ABV']),1), round(float(data['temperature']),1), round(float(data['battery']),2), data['recipe'])                            
+                    message += content
+                self.cbpi.notify(f"Status alarm for the following Spindles", str(message), NotificationType.INFO, action=[NotificationAction("OK", self.Confirm)])
+            except Exception as e:
+                logging.error('Error sending alarm: ' + str(e))
+        except Exception as e:
+            logging.error('Error sending status update: ' + str(e))
+        pass
+        
 
     async def send_data_to_sql(self, datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token):
         cnx = mysql.connector.connect(
@@ -551,6 +771,59 @@ class iSpindleEndpoint(CBPiExtension):
         try:
             cur.execute(add_sql, valuelist)
             cnx.commit()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+
+    # retrieve information from database, if mail has been sent for corresponding alarm
+    async def check_mail_sent(self, alarm, iSpindel):
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            cur = cnx.cursor()
+
+            sqlselect = "Select value from Settings where Section ='MESSAGING' and Parameter = '%s' AND value = '%s' ;" %(alarm, iSpindel)
+            #logger.error('SQL: ' + sqlselect)
+            cur.execute(sqlselect)
+            mail_sent = cur.fetchall()
+            #logger.error('Mail Sent: ' + str(mail_sent))
+            if len(mail_sent) > 0:
+                for i in mail_sent:
+                    spindelID_sent = i[0]
+                return spindelID_sent
+            else:
+                return 
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+
+    # write information to database, that email has been send for corresponding alarm
+    # iSpindel could be also '1' for setting SentStatus
+    async def write_mail_sent(self, alarm,iSpindel,SpindelName=''):
+        try:
+            logging.error('Writing alarmflag %s for Spindel %s' %(alarm,iSpindel))
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            cur = cnx.cursor()
+            sqlselect = "INSERT INTO Settings (Section, Parameter, value, DeviceName) VALUES ('MESSAGING','%s','%s','%s');" %(alarm, iSpindel, SpindelName)
+            cur.execute(sqlselect)
+            cnx.commit()
+            cur.close()
+            cnx.close()
+            return 1
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+
+    # remove email sent flag from database for corresponding alarm
+    async def delete_mail_sent(self, alarm,iSpindel):
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            cur = cnx.cursor()
+            sqlselect = "DELETE FROM Settings where Section ='MESSAGING' and Parameter = '%s' AND value = '%s';" %(alarm, iSpindel)
+            cur.execute(sqlselect)
+            cnx.commit()
+            cur.close()
+            cnx.close()
+            return 1
         except Exception as e:
             logging.error('Database Error: ' + str(e))
 
@@ -1390,6 +1663,8 @@ class iSpindleEndpoint(CBPiExtension):
         #logging.error(sql_select)
         cur.execute(sql_select)
         cnx.commit()
+        await self.delete_mail_sent('SentAlarmLow', id)
+        await self.delete_mail_sent('SentAlarmSVG', id)
         pass 
 
     @request_mapping(path='/transfercalibration/{SpindleID}/{ArchiveID}/', method="POST", auth_required=False)
