@@ -1477,7 +1477,7 @@ class iSpindleEndpoint(CBPiExtension):
                     initial_angle=0.0000000001
                 initial_gravity = (Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3)
 
-                sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, 'interval', rssi, gravity, recipe_id, \
+                sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity, recipe_id, \
                             ({Const0}*angle*angle*angle+ {Const1}*angle*angle +{Const2}*angle + {Const3}) as Servergravity \
                                 FROM Data WHERE Name = '{spindle[0]}' ORDER BY Timestamp DESC LIMIT 1")
                 cur.execute(sql_select)
@@ -1532,7 +1532,7 @@ class iSpindleEndpoint(CBPiExtension):
             user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
         cur = cnx.cursor()
         
-        sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, 'interval', rssi, gravity \
+        sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity \
                     FROM Data \
                     WHERE Name = '{spindle}' AND Timestamp > DATE_SUB(FROM_UNIXTIME({last}), INTERVAL {hours} HOUR) limit 1")
         cur.execute(sql_select)
