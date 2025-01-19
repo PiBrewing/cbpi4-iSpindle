@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 cache = {}
 
 # subclass JSONEncoder
-class DateTimeEncoder(JSONEncoder):
-        #Override the default method
-        def default(self, obj):
-            if isinstance(obj, (datetime.date, datetime.datetime)):
-                return obj.isoformat()
+#class DateTimeEncoder(JSONEncoder):
+#        #Override the default method
+#        def default(self, obj):
+#            if isinstance(obj, (datetime.date, datetime.datetime)):
+#                return obj.isoformat()
 
 class iSpindleConfig(CBPiExtension):
 
@@ -67,9 +67,7 @@ class iSpindleConfig(CBPiExtension):
                         
 
     async def iSpindle_config(self):
-        global spindledata, spindle_SQL, spindle_SQL_HOST, spindle_SQL_DB, spindle_SQL_TABLE, spindle_SQL_USER, spindle_SQL_PASSWORD, spindle_SQL_PORT, parametercheck
-        global brewfatheraddr, brewfatherport, brewfathersuffix, brewfathertoken, brewfather_enable
-        global dailyalarm, statusupdate
+        global spindledata, parametercheck
         global spindle_SQL_CONFIG 
         
         parametercheck=False
@@ -615,10 +613,10 @@ class iSpindleEndpoint(CBPiExtension):
         if spindle_SQL == "Yes":
             await self.controller.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, spindle_SQL_CONFIG)
         
-        if brewfather_enable == "Yes":
+        if self.cbpi.config.get("brewfather_enable", "No") == "Yes":
             await self.controller.send_brewfather_data(key, spindle_id, angle, temp, gravity, battery,  user_token)
 
-        if statusupdate == "Yes":
+        if self.cbpi.config.get("statusupdate", "No") == "Yes":
             alarmtime=self.cbpi.config.get("dailyalarm", "6")
             timestatuslow = datetime.time(int(alarmtime)-1, 45)
             timestatushigh = datetime.time(int(alarmtime), 15)

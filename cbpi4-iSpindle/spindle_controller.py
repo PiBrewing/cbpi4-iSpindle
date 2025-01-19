@@ -210,6 +210,10 @@ class iSpindleController:
             logging.error('Database Error: ' + str(e))
 
     async def send_brewfather_data(self, key, spindle_id, angle, temp, gravity, battery, user_token):
+        brewfatheraddr = self.cbpi.config.get("brewfatheraddr", "")
+        brewfatherport = self.cbpi.config.get("brewfatherport", 80)
+        brewfathertoken = self.cbpi.config.get("brewfathertoken", "")
+        brewfathersuffix = self.cbpi.config.get("brewfathersuffix", "")
         try:
             outdata = {
                     "ID": spindle_id,
