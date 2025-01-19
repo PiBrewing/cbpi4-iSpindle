@@ -76,7 +76,8 @@ class iSpindleConfig(CBPiExtension):
         global spindledata, spindle_SQL, spindle_SQL_HOST, spindle_SQL_DB, spindle_SQL_TABLE, spindle_SQL_USER, spindle_SQL_PASSWORD, spindle_SQL_PORT, parametercheck
         global brewfatheraddr, brewfatherport, brewfathersuffix, brewfathertoken, brewfather_enable
         global dailyalarm, statusupdate
-
+        global spindle_SQL_CONFIG 
+        
         parametercheck=False
         spindledata = self.cbpi.config.get("spindledata", None)
         if spindledata is None:
@@ -468,7 +469,8 @@ class iSpindleConfig(CBPiExtension):
             except Exception as e:
                 logger.warning('Unable to update database')
                 logger.warning(e)
-
+        
+        spindle_SQL_CONFIG = {'spindle_SQL': spindle_SQL, 'spindle_SQL_HOST': spindle_SQL_HOST, 'spindle_SQL_DB': spindle_SQL_DB, 'spindle_SQL_TABLE': spindle_SQL_TABLE, 'spindle_SQL_USER': spindle_SQL_USER, 'spindle_SQL_PASSWORD': spindle_SQL_PASSWORD, 'spindle_SQL_PORT': spindle_SQL_PORT}
         parametercheck=True
 
 
@@ -549,12 +551,13 @@ class iSpindleEndpoint(CBPiExtension):
         self.pattern_check = re.compile("^[a-zA-Z0-9,.]{0,10}$")
         self.cbpi = cbpi
         self.sensor_controller : SensorController = cbpi.sensor
+        self.controller = iSpindleController(cbpi)
         # register component for http, events
         # In addtion the sub folder static is exposed to access static content via http
         self.cbpi.register(self, "/api/hydrometer/v1/data")
 
     async def run(self):
-        await self.get_spindle_sensor()
+        await self.controller.get_spindle_sensor() 
 
     @request_mapping(path='', method="POST", auth_required=False)
     async def http_new_value3(self, request):
@@ -581,7 +584,7 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        #logging.error(data)
+        logging.error(data)
         datatime = time.time()
         key = data['name']
         temp = round(float(data['temperature']), 2)
@@ -616,10 +619,10 @@ class iSpindleEndpoint(CBPiExtension):
         cache[key] = {'Time': datatime,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
 
         if spindle_SQL == "Yes":
-            await self.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token)
+            await self.controller.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, spindle_SQL_CONFIG)
         
         if brewfather_enable == "Yes":
-            await self.send_brewfather_data(key, spindle_id, angle, temp, gravity, battery,  user_token)
+            await self.controller.send_brewfather_data(key, spindle_id, angle, temp, gravity, battery,  user_token)
 
         if statusupdate == "Yes":
             alarmtime=self.cbpi.config.get("dailyalarm", "6")
@@ -628,20 +631,391 @@ class iSpindleEndpoint(CBPiExtension):
             currentdate = datetime.datetime.now()
             currenttime = datetime.datetime.time(currentdate)
             if currenttime >= timestatuslow and currenttime < timestatushigh:
-                notificationsent = await self.check_mail_sent('SentStatus', '1')
+                notificationsent = await self.controller.check_mail_sent(spindle_SQL_CONFIG, 'SentStatus', '1')
                 if not notificationsent:
-                    await self.send_status_update()
-                    await self.write_mail_sent('SentStatus', '1')
+                    await self.controller.send_status_update(spindle_SQL_CONFIG)
+                    await self.controller.write_mail_sent(spindle_SQL_CONFIG, 'SentStatus', '1',"")
             else:
-                await self.delete_mail_sent('SentStatus', '1')
+                await self.controller.delete_mail_sent(spindle_SQL_CONFIG, 'SentStatus', '1')
 
-        await self.send_alarm(key, spindle_id)
-   
+        await self.controller.send_alarm(spindle_SQL_CONFIG, key, spindle_id)
+
+    @request_mapping(path='/gettemp/{SpindleID}', method="POST", auth_required=False)
+    async def get_fermenter_temp(self, request):
+        SpindleID = request.match_info['SpindleID']
+        sensor_value = await self.controller.get_spindle_sensor(SpindleID)
+        data = {'Temp': sensor_value}
+        return  web.json_response(data=data)
+
+    @request_mapping(path='/getarchive', method="GET", auth_required=False)
+    async def get_archive_headers(self, request):
+        """
+        ---
+        description: Get all stored fermentations from database archive
+        tags:
+        - iSpindle
+        responses:
+            "200":
+                description: successful operation
+        """
+
+        data= await self.controller.get_archive_list(spindle_SQL_CONFIG)
+        return  web.json_response(data=data)
+
+    @request_mapping(path='/getdiagrams', method="GET", auth_required=False)
+    async def get_diagrams(self, request):
+        """
+        ---
+        description: Get available diagrams
+        tags:
+        - iSpindle
+        responses:
+            "200":
+                description: successful operation
+        """
+
+        data= await self.controller.get_diagram_list()
+        return  web.json_response(data=data)
+
+    @request_mapping(path='/getarchiveheader/{ArchiveID}/', method="POST", auth_required=False)
+    async def get_archive_header(self, request):
+        """
+        ---
+        description: Get Archive header data for specified archive id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "ArchiveID"
+          in: "path"
+          description: "ArchiveID"
+          required: true
+          type: "integer"
+          format: "int64"
+        responses:
+            "200":
+                description: successful operation
+        """
+        ArchiveID = request.match_info['ArchiveID']
+        try:
+            header_data = await self.controller.get_archive_header_data(spindle_SQL_CONFIG, ArchiveID)
+            #logger.error(header_data)
+            return  web.json_response(data=header_data)
+        except Exception as e:
+            logger.error(e)
+            return  web.json_response(status=500)
+
+    @request_mapping(path='/getarchivevalues', method="POST", auth_required=False)
+    async def get_archive_values(self, request):
+        """
+        ---
+        description: get archive values for specified archive id
+        tags:
+        - iSpindle
+        parameters:
+        - in: body
+          name: body
+          description: get archive values for specified archive id
+          required: true
+          
+          schema:
+            type: object
+            
+            properties:
+              name:
+                type: string
+              sensor:
+                type: "integer"
+                format: "int64"
+              heater:
+                type: "integer"
+                format: "int64"
+              agitator:
+                type: "integer"
+                format: "int64"
+              target_temp:
+                type: "integer"
+                format: "int64"
+              type:
+                type: string
+            example: 
+              name: "Kettle 1"
+              type: "CustomKettleLogic"
+
+              
+        responses:
+            "204":
+                description: successful operation
+        """        
+        data = await request.json()
+
+        result= await self.controller.get_all_archive_values(spindle_SQL_CONFIG, data)
+
+        #header_data = await self.get_archive_header_data(ArchiveID)
+        #logger.error(header_data)
+        #return  web.json_response(data=header_data)
+        return  web.json_response(data=result)
+
+    @request_mapping(path='/removeridflag/{ArchiveID}/', method="POST", auth_required=False)
+    async def removeridflag(self, request):
+        """
+        ---
+        description: Remove end of archive flag for specified archive id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "ArchiveID"
+          in: "path"
+          description: "ArchiveID"
+          required: true
+          type: "integer"
+          format: "int64"
+        responses:
+            "200":
+                description: successful operation
+        """
+        ArchiveID = request.match_info['ArchiveID']
+        await self.controller.removearchiveflag(spindle_SQL_CONFIG, ArchiveID)
+        #logger.error(header_data)
+        return  web.json_response(status=200)
+
+    @request_mapping(path='/addridflag/{ArchiveID}/{Timestamp}/', method="POST", auth_required=False)
+    async def addridflag(self, request):
+        """
+        ---
+        description: Remove end of archive flag for specified archive id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "ArchiveID"
+          in: "path"
+          description: "ArchiveID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - name: "Timestamp"
+          in: "path"
+          description: "Timestamp"
+          required: true
+          type: "Timestamp"
+          format: "YYYY-MM-DD HH:MM:SS"
+        responses:
+            "200":
+                description: successful operation
+        """
+        ArchiveID = request.match_info['ArchiveID']
+        Timestamp = round(int(request.match_info['Timestamp'])/1000)
+        await self.controller.addarchiveflag(spindle_SQL_CONFIG, ArchiveID, Timestamp)
+        #logger.error(header_data)
+        return  web.json_response(status=200)
+
+    @request_mapping(path='/deletearchive/{ArchiveID}/', method="POST", auth_required=False)
+    async def deletearchive(self, request):
+        """
+        ---
+        description: Delete data from  database for specified archive id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "ArchiveID"
+          in: "path"
+          description: "ArchiveID"
+          required: true
+          type: "integer"
+          format: "int64"
+        responses:
+            "200":
+                description: successful operation
+        """
+        ArchiveID = request.match_info['ArchiveID']
+        await self.controller.deletearchivefromdatabase(spindle_SQL_CONFIG, ArchiveID)
+        #logger.error(header_data)
+        return  web.json_response(status=200)
+
+    @request_mapping(path='/getcalibration/', method="POST", auth_required=False)
+    async def getcalibration(self, request):
+        """
+        ---
+        description: Get calibration data for all spindles
+        tags:
+        - iSpindle
+        responses:
+            "200":
+                description: successful operation
+        """
+        spindle_calibration = await self.controller.get_calibration(spindle_SQL_CONFIG)
+        return  web.json_response(data=spindle_calibration)
+
+    @request_mapping(path='/savecalibration/{id}/', method="POST", auth_required=False)
+    async def savecalibration(self, request):
+        """
+        ---
+        description: Save Calibration for specified spindle id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "id"
+          in: "path"
+          description: "Spindle ID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - in: body
+          name: body
+          description: dict of const0, const1, const2, const3
+          required: true
+          schema:
+            type: object
+
+            properties:
+              const0:
+                type: "float"
+                format: "float"
+                required: true
+              const1:
+                type: "float"
+                format: "float"
+                required: true
+              const2:
+                type: "float"
+                format: "float"
+                required: true                            
+              const3:
+                type: "float"
+                format: "float"
+                required: true             
+        example:
+            const0: 0.0
+            const1: 0.0
+            const2: 0.0
+            const3: 0.0
+
+        responses:
+            "200":
+                description: successful operation
+        """        
+        data = await request.json()
+        id = request.match_info['id']
+        await self.controller.save_calibration(spindle_SQL_CONFIG, id, data)
+
+        return  web.json_response(status=200)
+
+    @request_mapping(path='/getrecentdata/{days}/', method="POST", auth_required=False)
+    async def getrecentdata(self, request):
+        """
+        ---
+        description: get last data from Spindles that have send data in the last x days
+        tags:
+        - iSpindle
+        parameters:
+        - name: "days"
+          in: "path"
+          description: "Get last data from Spindle if Spindle has sent data within the last x days "
+          required: true
+          type: "integer"
+          format: "int64"
+        responses:
+            "200":
+                description: successful operation
+        """
+        days = request.match_info['days']
+        logger.error(days)
+        try:
+            spindle_data = await self.controller.get_recent_data(spindle_SQL_CONFIG, days)
+            return  web.json_response(data=spindle_data)
+
+        except Exception as e:
+            logger.error(e)
+            return  web.json_response(status=500)
+        #logger.error(header_data)
         
-    async def send_alarm(self, key, spindle_id):
+    @request_mapping(path='/resetspindlerecipe/{id}/', method="POST", auth_required=False)
+    async def resetspindlerecipe(self, request):
+        """
+        ---
+        description: Save Calibration for specified spindle id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "id"
+          in: "path"
+          description: "Spindle ID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - in: body
+          name: body
+          description: dict of Spindlename, Batchid, Recipeid
+          required: true
+          schema:
+            type: object
+
+            properties:
+              Spindlename:
+                type: "string"
+                required: true
+              Batchid:
+                type: "string"
+                required: true
+              Recipeid:
+                type: "string"
+                required: true                            
+        example:
+            Spindlename: "iSpindle001"
+            Batchid: "2501"
+            RecipeID: "Kölsch"
+
+        responses:
+            "200":
+                description: successful operation
+        """        
+        data = await request.json()
+        id = request.match_info['id']
+        await self.controller.reset_spindle_recipe(spindle_SQL_CONFIG, id, data)
+
+        return  web.json_response(status=200)
+
+    @request_mapping(path='/transfercalibration/{SpindleID}/{ArchiveID}/', method="POST", auth_required=False)
+    async def transfercalibration(self, request):
+        """
+        ---
+        description: Transfer current Calibration from SpindleID to ArchiveID
+        tags:
+        - iSpindle
+        parameters:
+        - name: "SpindleID"
+          in: "path"
+          description: "Spindle ID"
+          required: true
+          type: "integer"
+          format: "int64"
+        - name: "ArchiveID"
+          in: "path"
+          description: "Archive ID"
+          required: true
+          type: "integer"
+          format: "int64"
+
+        responses:
+            "200":
+                description: successful operation
+        """
+        SpindleID = request.match_info['SpindleID']
+        ArchiveID = request.match_info['ArchiveID']
+        status= await self.controller.transfer_calibration(spindle_SQL_CONFIG, SpindleID, ArchiveID)
+        return  web.json_response(status=status)
+
+
+class iSpindleController:
+
+    def __init__(self, cbpi):
+        self.cbpi = cbpi
+        pass
+
+    async def send_alarm(self, spindle_SQL_CONFIG, key, spindle_id):
         alarmlow = float(self.cbpi.config.get("alarmlow", 0))
         alarmsvg = self.cbpi.config.get("alarmsvg", 100)
-        result = await self.get_recent_data(1)
+        result = await self.get_recent_data(spindle_SQL_CONFIG, 1)
+
         body = '<br/><b>Date:</b> {}' +\
                 '<br/><b>ID:</b> {}' +\
                 '<br/><b>Angle:</b> {}' + \
@@ -660,7 +1034,7 @@ class iSpindleEndpoint(CBPiExtension):
                 data=spindle['data']
                 #logger.error('Data: ' + str(data))
                 if float(data['Servergravity']) < alarmlow:
-                    alarmlowsent = await self.check_mail_sent('SentAlarmLow', spindle_id)
+                    alarmlowsent = await self.check_mail_sent(spindle_SQL_CONFIG, 'SentAlarmLow', spindle_id)
                     #logger.error('AlarmLow: ' + str(alarmlowsent))
                     if not alarmlowsent:
                         try:
@@ -668,17 +1042,17 @@ class iSpindleEndpoint(CBPiExtension):
                             self.cbpi.notify(f"Low Gravity Alarm from Spindle {str(spindle['label'])}", str(content), NotificationType.INFO, action=[NotificationAction("OK", self.Confirm)])
                         except Exception as e:
                             logging.error('Error sending alarm: ' + str(e))
-                        await self.write_mail_sent('SentAlarmLow', spindle_id, spindle['label'])
+                        await self.write_mail_sent(spindle_SQL_CONFIG, 'SentAlarmLow', spindle_id, spindle['label'])
                         pass
                 if float(data['Attenuation']) > alarmsvg:
-                    alarmsvgsent = await self.check_mail_sent('SentAlarmSVG', spindle_id)
+                    alarmsvgsent = await self.check_mail_sent(spindle_SQL_CONFIG, 'SentAlarmSVG', spindle_id)
                     if not alarmsvgsent:
                         try:
                             content=body.format(data['unixtime'], spindle_id, round(float(data['angle']),1), round(float(data['InitialGravity']),1), round(float(data['Servergravity']),1), round(float(data['Delta_Gravity']),1), round(float(data['Attenuation']),1), round(float(data['ABV']),1), round(float(data['temperature']),1), round(float(data['battery']),2), data['recipe'])                            
                             self.cbpi.notify(f"Attenuation Alarm from Spindle {str(spindle['label'])}", str(body), NotificationType.INFO, action=[NotificationAction("OK", self.Confirm)])
                         except Exception as e:
                             logging.error('Error sending alarm: ' + str(e))
-                        await self.write_mail_sent('SentAlarmSVG', spindle_id, spindle['label'])
+                        await self.write_mail_sent(spindle_SQL_CONFIG, 'SentAlarmSVG', spindle_id, spindle['label'])
                         pass
                     
         pass
@@ -686,7 +1060,7 @@ class iSpindleEndpoint(CBPiExtension):
     async def Confirm(self, **kwargs):
         pass
 
-    async def send_status_update(self):
+    async def send_status_update(self, spindle_SQL_CONFIG):
         message=""
         body = '<br/><b>Name:</b> {}' +\
                 '<br/><b>Date:</b> {}' +\
@@ -701,7 +1075,7 @@ class iSpindleEndpoint(CBPiExtension):
                 '<br/><b>Recipe name:</b> {}' + \
                 '<br/><br/>'
         try:
-            result = await self.get_recent_data(3)
+            result = await self.get_recent_data(spindle_SQL_CONFIG, 3)
             #logging.error('Status Update: ' + str(result))
             try:
                 for spindle in result:
@@ -716,9 +1090,10 @@ class iSpindleEndpoint(CBPiExtension):
         pass
         
 
-    async def send_data_to_sql(self, datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token):
+    async def send_data_to_sql(self, datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, spindle_SQL_CONFIG):
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
 
         #get current recipe name
@@ -775,10 +1150,11 @@ class iSpindleEndpoint(CBPiExtension):
             logging.error('Database Error: ' + str(e))
 
     # retrieve information from database, if mail has been sent for corresponding alarm
-    async def check_mail_sent(self, alarm, iSpindel):
+    async def check_mail_sent(self, spindle_SQL_CONFIG, alarm, iSpindel):
         try:
             cnx = mysql.connector.connect(
-                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
             cur = cnx.cursor()
 
             sqlselect = "Select value from Settings where Section ='MESSAGING' and Parameter = '%s' AND value = '%s' ;" %(alarm, iSpindel)
@@ -797,11 +1173,12 @@ class iSpindleEndpoint(CBPiExtension):
 
     # write information to database, that email has been send for corresponding alarm
     # iSpindel could be also '1' for setting SentStatus
-    async def write_mail_sent(self, alarm,iSpindel,SpindelName=''):
+    async def write_mail_sent(self, spindle_SQL_CONFIG, alarm,iSpindel,SpindelName=''):
         try:
             logging.error('Writing alarmflag %s for Spindel %s' %(alarm,iSpindel))
             cnx = mysql.connector.connect(
-                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
             cur = cnx.cursor()
             sqlselect = "INSERT INTO Settings (Section, Parameter, value, DeviceName) VALUES ('MESSAGING','%s','%s','%s');" %(alarm, iSpindel, SpindelName)
             cur.execute(sqlselect)
@@ -813,10 +1190,11 @@ class iSpindleEndpoint(CBPiExtension):
             logging.error('Database Error: ' + str(e))
 
     # remove email sent flag from database for corresponding alarm
-    async def delete_mail_sent(self, alarm,iSpindel):
+    async def delete_mail_sent(self, spindle_SQL_CONFIG, alarm, iSpindel):
         try:
             cnx = mysql.connector.connect(
-                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
             cur = cnx.cursor()
             sqlselect = "DELETE FROM Settings where Section ='MESSAGING' and Parameter = '%s' AND value = '%s';" %(alarm, iSpindel)
             cur.execute(sqlselect)
@@ -853,12 +1231,6 @@ class iSpindleEndpoint(CBPiExtension):
             logging.error('Brewfather Error: ' + str(e))
         
 
-    @request_mapping(path='/gettemp/{SpindleID}', method="POST", auth_required=False)
-    async def get_fermenter_temp(self, request):
-        SpindleID = request.match_info['SpindleID']
-        sensor_value = await self.get_spindle_sensor(SpindleID)
-        data = {'Temp': sensor_value}
-        return  web.json_response(data=data)
 
     async def get_spindle_sensor(self, iSpindleID = None):
         self.sensor = self.sensor_controller.get_state()
@@ -876,47 +1248,20 @@ class iSpindleEndpoint(CBPiExtension):
                         sensor_value = None
                     return sensor_value
 
-    @request_mapping(path='/getarchive', method="GET", auth_required=False)
-    async def get_archive_headers(self, request):
-        """
-        ---
-        description: Get all stored fermentations from database archive
-        tags:
-        - iSpindle
-        responses:
-            "200":
-                description: successful operation
-        """
-
-        data= await self.get_archive_list()
-        return  web.json_response(data=data)
     
 
-    async def get_archive_list(self):
+    async def get_archive_list(self, spindle_SQL_CONFIG):
         ORDER="DESC"
         archive_sql = "SELECT Recipe_ID as value, CONCAT(Batch, ' | ', Name, ' | ',DATE_FORMAT(Start_date, '%Y-%m-%d'),' | ', Recipe, ' (', Recipe_ID,')' ) as 'label' FROM Archive ORDER BY Recipe_ID {}".format(ORDER)
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         cur.execute(archive_sql)
         columns = [column[0] for column in cur.description]
         results = [dict(zip(columns, row)) for row in cur.fetchall()]
         return results
 
-    @request_mapping(path='/getdiagrams', method="GET", auth_required=False)
-    async def get_diagrams(self, request):
-        """
-        ---
-        description: Get available diagrams
-        tags:
-        - iSpindle
-        responses:
-            "200":
-                description: successful operation
-        """
-
-        data= await self.get_diagram_list()
-        return  web.json_response(data=data)
   
     async def get_diagram_list(self):
         results = [{'value': '0', 'label': 'Gravity and Temperature (RasPySpindle)'},
@@ -927,38 +1272,13 @@ class iSpindleEndpoint(CBPiExtension):
 
         return results
 
-    @request_mapping(path='/getarchiveheader/{ArchiveID}/', method="POST", auth_required=False)
-    async def get_archive_header(self, request):
-        """
-        ---
-        description: Get Archive header data for specified archive id
-        tags:
-        - iSpindle
-        parameters:
-        - name: "ArchiveID"
-          in: "path"
-          description: "ArchiveID"
-          required: true
-          type: "integer"
-          format: "int64"
-        responses:
-            "200":
-                description: successful operation
-        """
-        ArchiveID = request.match_info['ArchiveID']
-        try:
-            header_data = await self.get_archive_header_data(ArchiveID)
-            #logger.error(header_data)
-            return  web.json_response(data=header_data)
-        except Exception as e:
-            logger.error(e)
-            return  web.json_response(status=500)
     
-    async def get_archive_header_data(self, ArchiveID):
+    async def get_archive_header_data(self, spindle_SQL_CONFIG, ArchiveID):
         result_angle=[] 
 
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
 
         #get other archive data
@@ -1077,58 +1397,8 @@ class iSpindleEndpoint(CBPiExtension):
         return archive_header
 
 
-    @request_mapping(path='/getarchivevalues', method="POST", auth_required=False)
-    async def get_archive_values(self, request):
-        """
-        ---
-        description: get archive values for specified archive id
-        tags:
-        - iSpindle
-        parameters:
-        - in: body
-          name: body
-          description: get archive values for specified archive id
-          required: true
-          
-          schema:
-            type: object
-            
-            properties:
-              name:
-                type: string
-              sensor:
-                type: "integer"
-                format: "int64"
-              heater:
-                type: "integer"
-                format: "int64"
-              agitator:
-                type: "integer"
-                format: "int64"
-              target_temp:
-                type: "integer"
-                format: "int64"
-              type:
-                type: string
-            example: 
-              name: "Kettle 1"
-              type: "CustomKettleLogic"
 
-              
-        responses:
-            "204":
-                description: successful operation
-        """        
-        data = await request.json()
-
-        result= await self.get_all_archive_values(data)
-
-        #header_data = await self.get_archive_header_data(ArchiveID)
-        #logger.error(header_data)
-        #return  web.json_response(data=header_data)
-        return  web.json_response(data=result)
-
-    async def get_all_archive_values(self, data):
+    async def get_all_archive_values(self, spindle_SQL_CONFIG, data):
         ArchiveID = data.get('ArchiveID')
         Const0 = float(data.get('Const0'))
         Const1 = float(data.get('Const1'))
@@ -1153,7 +1423,8 @@ class iSpindleEndpoint(CBPiExtension):
 
         # Get all data for the selected recipe
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
 
         cur.execute(sql_select)
@@ -1166,101 +1437,29 @@ class iSpindleEndpoint(CBPiExtension):
             data[col] = df[col].tolist()
         return data
     
-    @request_mapping(path='/removeridflag/{ArchiveID}/', method="POST", auth_required=False)
-    async def removeridflag(self, request):
-        """
-        ---
-        description: Remove end of archive flag for specified archive id
-        tags:
-        - iSpindle
-        parameters:
-        - name: "ArchiveID"
-          in: "path"
-          description: "ArchiveID"
-          required: true
-          type: "integer"
-          format: "int64"
-        responses:
-            "200":
-                description: successful operation
-        """
-        ArchiveID = request.match_info['ArchiveID']
-        await self.removearchiveflag(ArchiveID)
-        #logger.error(header_data)
-        return  web.json_response(status=200)
-
-    async def removearchiveflag(self, ArchiveID):
+    async def removearchiveflag(self, spindle_SQL_CONFIG, ArchiveID):
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         sql_update = "UPDATE Data SET Internal = NULL WHERE Recipe_ID = '{}' AND Internal = 'RID_END'".format(ArchiveID)
         cur.execute(sql_update)
         cnx.commit()
 
-    @request_mapping(path='/addridflag/{ArchiveID}/{Timestamp}/', method="POST", auth_required=False)
-    async def addridflag(self, request):
-        """
-        ---
-        description: Remove end of archive flag for specified archive id
-        tags:
-        - iSpindle
-        parameters:
-        - name: "ArchiveID"
-          in: "path"
-          description: "ArchiveID"
-          required: true
-          type: "integer"
-          format: "int64"
-        - name: "Timestamp"
-          in: "path"
-          description: "Timestamp"
-          required: true
-          type: "Timestamp"
-          format: "YYYY-MM-DD HH:MM:SS"
-        responses:
-            "200":
-                description: successful operation
-        """
-        ArchiveID = request.match_info['ArchiveID']
-        Timestamp = round(int(request.match_info['Timestamp'])/1000)
-        await self.addarchiveflag(ArchiveID, Timestamp)
-        #logger.error(header_data)
-        return  web.json_response(status=200)
-
-    async def addarchiveflag(self, ArchiveID, Timestamp):
+    async def addarchiveflag(self, spindle_SQL_CONFIG, ArchiveID, Timestamp):
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         sql_update = "UPDATE Data SET Internal = 'RID_END' WHERE Recipe_ID = '{}' AND UNIX_TIMESTAMP(Timestamp) = {}".format(ArchiveID, Timestamp)
         cur.execute(sql_update)
         cnx.commit()
 
-    @request_mapping(path='/deletearchive/{ArchiveID}/', method="POST", auth_required=False)
-    async def deletearchive(self, request):
-        """
-        ---
-        description: Delete data from  database for specified archive id
-        tags:
-        - iSpindle
-        parameters:
-        - name: "ArchiveID"
-          in: "path"
-          description: "ArchiveID"
-          required: true
-          type: "integer"
-          format: "int64"
-        responses:
-            "200":
-                description: successful operation
-        """
-        ArchiveID = request.match_info['ArchiveID']
-        await self.deletearchivefromdatabase(ArchiveID)
-        #logger.error(header_data)
-        return  web.json_response(status=200)
 
-    async def deletearchivefromdatabase(self, ArchiveID):
+    async def deletearchivefromdatabase(self, spindle_SQL_CONFIG, ArchiveID):
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         sql_delete1 = "DELETE FROM Archive WHERE Recipe_ID = '{}'".format(ArchiveID)
         sql_delete2 = "DELETE FROM Data WHERE Recipe_ID = '{}'".format(ArchiveID)
@@ -1268,28 +1467,16 @@ class iSpindleEndpoint(CBPiExtension):
         cur.execute(sql_delete2)
         cnx.commit()
 
-    @request_mapping(path='/getcalibration/', method="POST", auth_required=False)
-    async def getcalibration(self, request):
-        """
-        ---
-        description: Get calibration data for all spindles
-        tags:
-        - iSpindle
-        responses:
-            "200":
-                description: successful operation
-        """
-        spindle_calibration = await self.get_calibration()
-        return  web.json_response(data=spindle_calibration)
     
-    async def get_calibration(self):
+    async def get_calibration(self, spindle_SQL_CONFIG):
         result_spindles=[]
         spindles = []
         spindle_ids=[]
         spindle_calibration=[]
         calibrated=[]
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
 
         #get all spindles from Data table
@@ -1325,63 +1512,11 @@ class iSpindleEndpoint(CBPiExtension):
        
         return result_spindles
 
-    @request_mapping(path='/savecalibration/{id}/', method="POST", auth_required=False)
-    async def savecalibration(self, request):
-        """
-        ---
-        description: Save Calibration for specified spindle id
-        tags:
-        - iSpindle
-        parameters:
-        - name: "id"
-          in: "path"
-          description: "Spindle ID"
-          required: true
-          type: "integer"
-          format: "int64"
-        - in: body
-          name: body
-          description: dict of const0, const1, const2, const3
-          required: true
-          schema:
-            type: object
 
-            properties:
-              const0:
-                type: "float"
-                format: "float"
-                required: true
-              const1:
-                type: "float"
-                format: "float"
-                required: true
-              const2:
-                type: "float"
-                format: "float"
-                required: true                            
-              const3:
-                type: "float"
-                format: "float"
-                required: true             
-        example:
-            const0: 0.0
-            const1: 0.0
-            const2: 0.0
-            const3: 0.0
-
-        responses:
-            "200":
-                description: successful operation
-        """        
-        data = await request.json()
-        id = request.match_info['id']
-        await self.save_calibration(id, data)
-
-        return  web.json_response(status=200)
-
-    async def save_calibration(self, id, data):
+    async def save_calibration(self, spindle_SQL_CONFIG, id, data):
         cnx = mysql.connector.connect(
-                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         if data['calibrated'] == True:
             sql_update = "UPDATE Calibration SET const0 = {}, const1 = {}, const2 = {}, const3 = {} WHERE ID = '{}'".format(data['const0'], data['const1'], data['const2'], data['const3'], id)
@@ -1392,42 +1527,15 @@ class iSpindleEndpoint(CBPiExtension):
             cur.execute(sql_insert)
             cnx.commit()
 
-    @request_mapping(path='/getrecentdata/{days}/', method="POST", auth_required=False)
-    async def getrecentdata(self, request):
-        """
-        ---
-        description: get last data from Spindles that have send data in the last x days
-        tags:
-        - iSpindle
-        parameters:
-        - name: "days"
-          in: "path"
-          description: "Get last data from Spindle if Spindle has sent data within the last x days "
-          required: true
-          type: "integer"
-          format: "int64"
-        responses:
-            "200":
-                description: successful operation
-        """
-        days = request.match_info['days']
-        try:
-            spindle_data = await self.get_recent_data(days)
-            return  web.json_response(data=spindle_data)
-
-        except Exception as e:
-            logger.error(e)
-            return  web.json_response(status=500)
-        #logger.error(header_data)
-        
-    async def get_recent_data(self,days):
+    async def get_recent_data(self, spindle_SQL_CONFIG, days):
         spindles = []
         calibrated=[]
         spindle_data=[]
         spindle_id=[]
         spindle_calibration=[]
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
 
         #get all spindles from Data table
@@ -1487,7 +1595,7 @@ class iSpindleEndpoint(CBPiExtension):
                     try:
                         hours=12
                         lasttime=result[0]['unixtime']
-                        old_gravity = await self.getgravityhoursago(spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
+                        old_gravity = await self.getgravityhoursago(spindle_SQL_CONFIG, spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
                         result[0]['Delta_Gravity']=(float(result[0]['Servergravity'])-old_gravity)
                     except:
                         result[0]['Delta_Gravity']=0
@@ -1527,9 +1635,10 @@ class iSpindleEndpoint(CBPiExtension):
 
         return spindle_data
 
-    async def getgravityhoursago(self,spindle, Const0, Const1, Const2, Const3, last, hours=12):
+    async def getgravityhoursago(self, spindle_SQL_CONFIG, spindle, Const0, Const1, Const2, Const3, last, hours=12):
         cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         
         sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity \
@@ -1545,55 +1654,11 @@ class iSpindleEndpoint(CBPiExtension):
         else:
             return 0
 
-    @request_mapping(path='/resetspindlerecipe/{id}/', method="POST", auth_required=False)
-    async def resetspindlerecipe(self, request):
-        """
-        ---
-        description: Save Calibration for specified spindle id
-        tags:
-        - iSpindle
-        parameters:
-        - name: "id"
-          in: "path"
-          description: "Spindle ID"
-          required: true
-          type: "integer"
-          format: "int64"
-        - in: body
-          name: body
-          description: dict of Spindlename, Batchid, Recipeid
-          required: true
-          schema:
-            type: object
 
-            properties:
-              Spindlename:
-                type: "string"
-                required: true
-              Batchid:
-                type: "string"
-                required: true
-              Recipeid:
-                type: "string"
-                required: true                            
-        example:
-            Spindlename: "iSpindle001"
-            Batchid: "2501"
-            RecipeID: "Kölsch"
-
-        responses:
-            "200":
-                description: successful operation
-        """        
-        data = await request.json()
-        id = request.match_info['id']
-        await self.reset_spindle_recipe(id, data)
-
-        return  web.json_response(status=200)
-
-    async def reset_spindle_recipe(self, id, data):
+    async def reset_spindle_recipe(self, spindle_SQL_CONFIG, id, data):
         cnx = mysql.connector.connect(
-                user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
         cur = cnx.cursor()
         spindlename=data['Spindlename']
         batchid=data['BatchID']
@@ -1663,43 +1728,14 @@ class iSpindleEndpoint(CBPiExtension):
         #logging.error(sql_select)
         cur.execute(sql_select)
         cnx.commit()
-        await self.delete_mail_sent('SentAlarmLow', id)
-        await self.delete_mail_sent('SentAlarmSVG', id)
+        await self.delete_mail_sent(spindle_SQL_CONFIG, 'SentAlarmLow', id)
+        await self.delete_mail_sent(spindle_SQL_CONFIG, 'SentAlarmSVG', id)
         pass 
 
-    @request_mapping(path='/transfercalibration/{SpindleID}/{ArchiveID}/', method="POST", auth_required=False)
-    async def transfercalibration(self, request):
-        """
-        ---
-        description: Transfer current Calibration from SpindleID to ArchiveID
-        tags:
-        - iSpindle
-        parameters:
-        - name: "SpindleID"
-          in: "path"
-          description: "Spindle ID"
-          required: true
-          type: "integer"
-          format: "int64"
-        - name: "ArchiveID"
-          in: "path"
-          description: "Archive ID"
-          required: true
-          type: "integer"
-          format: "int64"
-
-        responses:
-            "200":
-                description: successful operation
-        """
-        SpindleID = request.match_info['SpindleID']
-        ArchiveID = request.match_info['ArchiveID']
-        status= await self.transfer_calibration(SpindleID, ArchiveID)
-        return  web.json_response(status=status)
     
-    async def transfer_calibration(self, SpindleID, ArchiveID):
+    async def transfer_calibration(self, spindle_SQL_CONFIG, SpindleID, ArchiveID):
         data=[]
-        spindle_calibration = await self.get_calibration()
+        spindle_calibration = await self.get_calibration(spindle_SQL_CONFIG)
         for spindle in spindle_calibration:
             if spindle['ID'] == int(SpindleID):
                 data=spindle['data']
@@ -1712,7 +1748,8 @@ class iSpindleEndpoint(CBPiExtension):
             calibrated=data['calibrated']
             if calibrated == True:
                 cnx = mysql.connector.connect(
-                    user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
                 cur = cnx.cursor()                         
                 update_archive_table = (f"UPDATE Archive Set const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
                                         WHERE Recipe_ID = '{ArchiveID}'")
