@@ -19,13 +19,6 @@ logger = logging.getLogger(__name__)
 
 cache = {}
 
-# subclass JSONEncoder
-#class DateTimeEncoder(JSONEncoder):
-#        #Override the default method
-#        def default(self, obj):
-#            if isinstance(obj, (datetime.date, datetime.datetime)):
-#                return obj.isoformat()
-
 class iSpindleConfig(CBPiExtension):
 
     def __init__(self,cbpi):
@@ -52,9 +45,10 @@ class iSpindleConfig(CBPiExtension):
         while parametercheck == False:
             await asyncio.sleep(1)
         
-        if spindle_SQL == "Yes":
+        if spindle_SQL_CONFIG["spindle_SQL"] == "Yes":
             cnx = mysql.connector.connect(
-            user=spindle_SQL_USER,  port=spindle_SQL_PORT, password=spindle_SQL_PASSWORD, host=spindle_SQL_HOST, database=spindle_SQL_DB)
+            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
             cur = cnx.cursor()
             sqlselect = "SELECT VERSION()"
             cur.execute(sqlselect)
