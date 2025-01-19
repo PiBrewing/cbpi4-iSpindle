@@ -15,6 +15,7 @@ from json import JSONEncoder
 from pandas import DataFrame
 from .spindle_controller import iSpindleController
 
+
 logger = logging.getLogger(__name__)
 
 cache = {}
