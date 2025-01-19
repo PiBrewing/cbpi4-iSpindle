@@ -604,7 +604,7 @@ class iSpindleEndpoint(CBPiExtension):
 
         cache[key] = {'Time': datatime,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
 
-        if spindle_SQL == "Yes":
+        if self.cbpi.config.get("spindle_SQL", "No") == "Yes":
             await self.controller.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, spindle_SQL_CONFIG)
         
         if self.cbpi.config.get("brewfather_enable", "No") == "Yes":
