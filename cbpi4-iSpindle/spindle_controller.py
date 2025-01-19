@@ -769,3 +769,25 @@ class iSpindleController:
 
         else:
             return 500
+
+    async def test_connection(self, spindle_SQL_CONFIG):
+            try:
+                cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                cur = cnx.cursor()
+                sqlselect = "SELECT VERSION()"
+                cur.execute(sqlselect)
+                results = cur.fetchone()
+                ver = results[0]
+                logging.info("MySQL connection available. MySQL version: %s" % ver)
+                sql_connection=True
+                if (ver is None):
+                    logging.error("MySQL connection failed")
+                    sql_connection=False
+            except Exception as e:
+                logging.error('Database Error: ' + str(e))
+                sql_connection=False
+            
+            spindle_SQL_CONFIG['sql_connection'] = sql_connection
+            return spindle_SQL_CONFIG
