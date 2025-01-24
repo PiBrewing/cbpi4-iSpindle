@@ -86,7 +86,7 @@ class iSpindleController:
                     data=spindle['data']
                     content=body.format(spindle['label'],data['unixtime'], round(float(data['angle']),1), round(float(data['InitialGravity']),1), round(float(data['Servergravity']),1), round(float(data['Delta_Gravity']),1), round(float(data['Attenuation']),1), round(float(data['ABV']),1), round(float(data['temperature']),1), round(float(data['battery']),2), data['recipe'])                            
                     message += content
-                self.cbpi.notify(f"Status alarm for the following Spindles", str(message), NotificationType.INFO, action=[NotificationAction("OK", self.Confirm)])
+                self.cbpi.notify(f"Status alarm for the following Spindles", str(message), NotificationType.INFO)
             except Exception as e:
                 logging.error('Error sending alarm: ' + str(e))
         except Exception as e:
@@ -97,7 +97,7 @@ class iSpindleController:
     async def send_data_to_sql(self, datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, spindle_SQL_CONFIG):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
 
         #get current recipe name
@@ -106,7 +106,8 @@ class iSpindleController:
             sqlselect = (f"SELECT Data.Recipe FROM Data WHERE Data.Name = '{key}' AND Data.Timestamp >= (SELECT max( Data.Timestamp )FROM Data WHERE Data.Name = '{key}' AND Data.ResetFlag = true) LIMIT 1;")
             cur.execute(sqlselect)
             recipe_names = cur.fetchone()
-            recipe = str(recipe_names[0])
+            if recipe_names:
+                recipe = str(recipe_names[0])
         except Exception as e:
             logging.error(' Recipe Name not found - Database Error: ' + str(e))
         logging.info('Recipe Name: ' + recipe)
@@ -158,7 +159,7 @@ class iSpindleController:
         try:
             cnx = mysql.connector.connect(
                 user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
             cur = cnx.cursor()
 
             sqlselect = "Select value from Settings where Section ='MESSAGING' and Parameter = '%s' AND value = '%s' ;" %(alarm, iSpindel)
@@ -182,7 +183,7 @@ class iSpindleController:
             logging.error('Writing alarmflag %s for Spindel %s' %(alarm,iSpindel))
             cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
             cur = cnx.cursor()
             sqlselect = "INSERT INTO Settings (Section, Parameter, value, DeviceName) VALUES ('MESSAGING','%s','%s','%s');" %(alarm, iSpindel, SpindelName)
             cur.execute(sqlselect)
@@ -198,7 +199,7 @@ class iSpindleController:
         try:
             cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
             cur = cnx.cursor()
             sqlselect = "DELETE FROM Settings where Section ='MESSAGING' and Parameter = '%s' AND value = '%s';" %(alarm, iSpindel)
             cur.execute(sqlselect)
@@ -263,7 +264,7 @@ class iSpindleController:
         archive_sql = "SELECT Recipe_ID as value, CONCAT(Batch, ' | ', Name, ' | ',DATE_FORMAT(Start_date, '%Y-%m-%d'),' | ', Recipe, ' (', Recipe_ID,')' ) as 'label' FROM Archive ORDER BY Recipe_ID {}".format(ORDER)
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         cur.execute(archive_sql)
         columns = [column[0] for column in cur.description]
@@ -286,7 +287,7 @@ class iSpindleController:
 
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
 
         #get other archive data
@@ -303,10 +304,10 @@ class iSpindleController:
         End_date=result_archive[0]['End_date']
 
         try:
-            const0=result_archive[0]['const0']
-            const1=result_archive[0]['const1']  
-            const2=result_archive[0]['const2']
-            const3=result_archive[0]['const3']
+            const0=float(result_archive[0]['const0'])
+            const1=float(result_archive[0]['const1'])
+            const2=float(result_archive[0]['const2'])
+            const3=float(result_archive[0]['const3'])
             calibrated=True
         except:
             const0=0.000000001
@@ -314,6 +315,7 @@ class iSpindleController:
             const2=0.000000001
             const3=0.000000001
             calibrated=False
+
 
         if calibrated:
             if const0 == 0:
@@ -432,7 +434,7 @@ class iSpindleController:
         # Get all data for the selected recipe
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
 
         cur.execute(sql_select)
@@ -448,7 +450,7 @@ class iSpindleController:
     async def removearchiveflag(self, spindle_SQL_CONFIG, ArchiveID):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         sql_update = "UPDATE Data SET Internal = NULL WHERE Recipe_ID = '{}' AND Internal = 'RID_END'".format(ArchiveID)
         cur.execute(sql_update)
@@ -457,7 +459,7 @@ class iSpindleController:
     async def addarchiveflag(self, spindle_SQL_CONFIG, ArchiveID, Timestamp):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         sql_update = "UPDATE Data SET Internal = 'RID_END' WHERE Recipe_ID = '{}' AND UNIX_TIMESTAMP(Timestamp) = {}".format(ArchiveID, Timestamp)
         cur.execute(sql_update)
@@ -467,7 +469,7 @@ class iSpindleController:
     async def deletearchivefromdatabase(self, spindle_SQL_CONFIG, ArchiveID):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         sql_delete1 = "DELETE FROM Archive WHERE Recipe_ID = '{}'".format(ArchiveID)
         sql_delete2 = "DELETE FROM Data WHERE Recipe_ID = '{}'".format(ArchiveID)
@@ -484,7 +486,7 @@ class iSpindleController:
         calibrated=[]
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
 
         #get all spindles from Data table
@@ -524,7 +526,7 @@ class iSpindleController:
     async def save_calibration(self, spindle_SQL_CONFIG, id, data):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         if data['calibrated'] == True:
             sql_update = "UPDATE Calibration SET const0 = {}, const1 = {}, const2 = {}, const3 = {} WHERE ID = '{}'".format(data['const0'], data['const1'], data['const2'], data['const3'], id)
@@ -543,14 +545,14 @@ class iSpindleController:
         spindle_calibration=[]
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
 
         #get all spindles from Data table
         spindlenames_sql = f"SELECT DISTINCT Name FROM Data WHERE Timestamp > date_sub(NOW(), INTERVAL {days} DAY) ORDER BY Name"
         cur.execute(spindlenames_sql)
         spindles = cur.fetchall()
-        
+
         if spindles:
             for spindle in spindles:
                 spindle_ID_sql=f"SELECT DISTINCT ID FROM Data WHERE Name = '{spindle[0]}'AND (ID <>'' OR ID <>'0') ORDER BY Timestamp DESC LIMIT 1"
@@ -599,6 +601,7 @@ class iSpindleController:
                 cur.execute(sql_select)
                 columns = [column[0] for column in cur.description]
                 result = [dict(zip(columns, row)) for row in cur.fetchall()]
+
                 if result:
                     try:
                         hours=12
@@ -627,14 +630,15 @@ class iSpindleController:
                     result[0]['Const3']=Const3
 
                     recipe_id=result[0]['recipe_id']
-
                     sql_select=(f"SELECT batch FROM Archive WHERE Recipe_ID = {recipe_id}")
 
                     cur.execute(sql_select)
                     columns = [column[0] for column in cur.description]
                     result_batch = [dict(zip(columns, row)) for row in cur.fetchall()]
-                    result[0]['BatchID']=result_batch[0]['batch']
-
+                    if result_batch:
+                        result[0]['BatchID']=result_batch[0]['batch']
+                    else:
+                        result[0]['BatchID']='n/a'
                     currentspindle={'label': spindle[0], 'value': spindle_id, 'data': result[0] }
                     spindle_data.append(currentspindle)
                 else:
@@ -646,7 +650,7 @@ class iSpindleController:
     async def getgravityhoursago(self, spindle_SQL_CONFIG, spindle, Const0, Const1, Const2, Const3, last, hours=12):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         
         sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity \
@@ -666,7 +670,7 @@ class iSpindleController:
     async def reset_spindle_recipe(self, spindle_SQL_CONFIG, id, data):
         cnx = mysql.connector.connect(
             user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
         cur = cnx.cursor()
         spindlename=data['Spindlename']
         batchid=data['BatchID']
@@ -757,7 +761,7 @@ class iSpindleController:
             if calibrated == True:
                 cnx = mysql.connector.connect(
                 user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
                 cur = cnx.cursor()                         
                 update_archive_table = (f"UPDATE Archive Set const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
                                         WHERE Recipe_ID = '{ArchiveID}'")
@@ -774,7 +778,7 @@ class iSpindleController:
             try:
                 cnx = mysql.connector.connect(
                 user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
                 cur = cnx.cursor()
                 sqlselect = "SELECT VERSION()"
                 cur.execute(sqlselect)
@@ -782,12 +786,137 @@ class iSpindleController:
                 ver = results[0]
                 logging.info("MySQL connection available. MySQL version: %s" % ver)
                 sql_connection=True
+                database_available=True
                 if (ver is None):
                     logging.error("MySQL connection failed")
                     sql_connection=False
             except Exception as e:
                 logging.error('Database Error: ' + str(e))
+                self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
                 sql_connection=False
             
             spindle_SQL_CONFIG['sql_connection'] = sql_connection
+            #spindle_SQL_CONFIG['database_available'] = database_available
             return spindle_SQL_CONFIG
+
+    async def create_database(self, spindle_SQL_CONFIG, admin='pi', admin_password='1tosca42'):
+    
+        # Create database
+        create_db = f"CREATE DATABASE {spindle_SQL_CONFIG['spindle_SQL_DB']} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+
+        # create user    
+        create_user       = f"CREATE USER {spindle_SQL_CONFIG['spindle_SQL_USER']} IDENTIFIED BY '{spindle_SQL_CONFIG['spindle_SQL_PASSWORD']}'"
+        grant_user        = f"GRANT ALL PRIVILEGES ON {spindle_SQL_CONFIG['spindle_SQL_DB']} . * TO {spindle_SQL_CONFIG['spindle_SQL_USER']}"
+        flush_privileges  = "FLUSH PRIVILEGES"
+
+        try:
+            cnx = mysql.connector.connect(
+            user=admin,  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=admin_password, \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database='', connection_timeout=1)
+            cur = cnx.cursor()
+        except Exception as e:
+            logging.error('Database Creation Error: ' + str(e))
+            self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+        try:
+            cur.execute(create_db)
+        except Exception as e:
+            logging.error('Database Creation Error: ' + str(e))
+            self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+        try:
+            cur.execute(create_user)
+            cur.execute(grant_user)
+            cur.execute(flush_privileges)
+        except Exception as e:
+            logging.error('Database Creation Error: ' + str(e))
+            self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+            cur.close()
+            cnx.close()
+
+        try:
+            cnx = mysql.connector.connect(
+            user=admin,  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=admin_password, \
+                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+
+            # Create table
+            create_data = "CREATE TABLE `Data` (\
+                   `Timestamp` datetime NOT NULL,\
+                   `Name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                   `ID` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                   `Angle` double NOT NULL,\
+                   `Temperature` double NOT NULL,\
+                   `Battery` double NOT NULL,\
+                   `ResetFlag` tinyint(1) DEFAULT NULL,\
+                   `Gravity` double NOT NULL DEFAULT 0,\
+                   `UserToken` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                   `Interval` int(11) DEFAULT NULL,\
+                   `RSSI` int(11) DEFAULT NULL,\
+                   `Recipe` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                   `Recipe_ID` int(11) NOT NULL,\
+                   `Internal` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                   `Comment` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                   `Temperature_Alt` DOUBLE NULL DEFAULT NULL,\
+                    PRIMARY KEY (`Timestamp`,`Name`,`ID`)\
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT COMMENT='iSpindle Data';"
+
+            # create archive table
+            create_archive = "CREATE TABLE `Archive` (\
+                      `Recipe_ID` int(11) NOT NULL AUTO_INCREMENT,\
+                      `Name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\
+                      `ID` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                      `Recipe` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                      `Batch` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,\
+                      `Start_date` datetime NOT NULL,\
+                      `End_date` datetime DEFAULT NULL,\
+                      `const0` double DEFAULT NULL,\
+                      `const1` double DEFAULT NULL,\
+                      `const2` double DEFAULT NULL,\
+                      `const3` double DEFAULT NULL,\
+                      PRIMARY KEY (`Recipe_ID`)\
+                      ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+
+            #create calibration table
+            create_calibration = "CREATE TABLE `Calibration` (\
+                          `ID` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\
+                          `const0` double NOT NULL DEFAULT 0,\
+                          `const1` double NOT NULL DEFAULT 0,\
+                          `const2` double NOT NULL DEFAULT 0,\
+                          `const3` double NOT NULL DEFAULT 0,\
+                          PRIMARY KEY (`ID`)\
+                          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='iSpindle Calibration Data' ROW_FORMAT=COMPACT;"
+
+            # create config table
+            create_config = "CREATE TABLE `Config` (\
+                     `ID` int(11) NOT NULL,\
+                     `Interval` int(11) NOT NULL,\
+                     `Token` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                     `Polynomial` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                     `Sent` tinyint(1) NOT NULL\
+                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='iSpindle Config Data' ROW_FORMAT=COMPACT;"
+
+
+            # Create Settings table
+            create_settings= "CREATE TABLE `Settings` (\
+                            `Section` varchar(64) CHARACTER SET utf8 NOT NULL,\
+                            `Parameter` varchar(64) CHARACTER SET utf8 NOT NULL,\
+                            `value` varchar(80) CHARACTER SET utf8 NOT NULL,\
+                            `DEFAULT_value` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                            `Description_DE` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
+                            `Description_EN` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
+                            `Description_IT` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
+                            `DeviceName` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL\
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT;"
+            alter_settings="ALTER TABLE `Settings`\
+                            ADD PRIMARY KEY (`Section`,`Parameter`,`value`,`DeviceName`);"
+            cur.execute(create_data)
+            cur.execute(create_archive)
+            cur.execute(create_calibration)
+            cur.execute(create_config)
+            cur.execute(create_settings)
+            cur.execute(alter_settings)
+            cur.close()
+            self.cbpi.notify('Database Creation', 'Successfully created Databse', NotificationType.SUCCESS, action=[NotificationAction("OK", self.Confirm)])
+            return True
+        except Exception as e:
+            logging.error('Database Table Creation Error: ' + str(e))
+            return str(e)

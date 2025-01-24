@@ -45,18 +45,24 @@ class iSpindleConfig(CBPiExtension):
             await asyncio.sleep(1)
         
         if spindle_SQL_CONFIG["spindle_SQL"] == "Yes":
-            cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'])
-            cur = cnx.cursor()
-            sqlselect = "SELECT VERSION()"
-            cur.execute(sqlselect)
-            results = cur.fetchone()
-            ver = results[0]
-            logger.warning("MySQL connection available. MySQL version: %s" % ver)
-            sql_connection=True
-            if (ver is None):
+            try:
+                cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=2)
+                cur = cnx.cursor()
+                sqlselect = "SELECT VERSION()"
+                cur.execute(sqlselect)
+                results = cur.fetchone()
+                ver = results[0]
+                logger.warning("MySQL connection available. MySQL version: %s" % ver)
+                sql_connection=True
+                if (ver is None):
+                    sql_connection=False
+                    logger.error("MySQL connection failed")
+            except Exception as e:
                 logger.error("MySQL connection failed")
+                logger.error(e)
+                sql_connection=False
                         
 
 
@@ -261,6 +267,28 @@ class iSpindleEndpoint(CBPiExtension):
         """
 
         data= await self.controller.test_connection(spindle_SQL_CONFIG)
+        return  web.json_response(data=data)
+
+    @request_mapping(path='/createdatabase', method="POST", auth_required=False)
+    async def createdatabase(self, request):
+        """
+        ---
+        description: create database for iSpindle
+        tags:
+        - iSpindle
+        responses:
+            "200":
+                description: successful operation
+        """
+        sql_admin= await request.json()
+        try:
+            admin=sql_admin['admin']
+            password=sql_admin['adminpassword']
+        except:
+            admin=""
+            password=""
+        logger.error(sql_admin)
+        data = await self.controller.create_database(spindle_SQL_CONFIG, admin, password)
         return  web.json_response(data=data)
 
     @request_mapping(path='/getdiagrams', method="GET", auth_required=False)
