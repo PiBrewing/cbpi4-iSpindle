@@ -792,7 +792,7 @@ class iSpindleController:
                     sql_connection=False
             except Exception as e:
                 logging.error('Database Error: ' + str(e))
-                self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+                self.cbpi.notify('Database Connection Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
                 sql_connection=False
             
             spindle_SQL_CONFIG['sql_connection'] = sql_connection
@@ -817,106 +817,108 @@ class iSpindleController:
         except Exception as e:
             logging.error('Database Creation Error: ' + str(e))
             self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
-        try:
-            cur.execute(create_db)
-        except Exception as e:
-            logging.error('Database Creation Error: ' + str(e))
-            self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
-        try:
-            cur.execute(create_user)
-            cur.execute(grant_user)
-            cur.execute(flush_privileges)
-        except Exception as e:
-            logging.error('Database Creation Error: ' + str(e))
-            self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
-            cur.close()
-            cnx.close()
+        if cur:
+            try:
+                cur.execute(create_db)
+            except Exception as e:
+                logging.error('Database Creation Error: ' + str(e))
+                self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+            try:
+                cur.execute(create_user)
+                cur.execute(grant_user)
+                cur.execute(flush_privileges)
+            except Exception as e:
+                logging.error('Database Creation Error: ' + str(e))
+                self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+                cur.close()
+                cnx.close()
 
-        try:
-            cnx = mysql.connector.connect(
-            user=admin,  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=admin_password, \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-            cur = cnx.cursor()
+            try:
+                cnx = mysql.connector.connect(
+                user=admin,  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=admin_password, \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+                cur = cnx.cursor()
 
-            # Create table
-            create_data = "CREATE TABLE `Data` (\
-                   `Timestamp` datetime NOT NULL,\
-                   `Name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
-                   `ID` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
-                   `Angle` double NOT NULL,\
-                   `Temperature` double NOT NULL,\
-                   `Battery` double NOT NULL,\
-                   `ResetFlag` tinyint(1) DEFAULT NULL,\
-                   `Gravity` double NOT NULL DEFAULT 0,\
-                   `UserToken` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                   `Interval` int(11) DEFAULT NULL,\
-                   `RSSI` int(11) DEFAULT NULL,\
-                   `Recipe` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                   `Recipe_ID` int(11) NOT NULL,\
-                   `Internal` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                   `Comment` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                   `Temperature_Alt` DOUBLE NULL DEFAULT NULL,\
-                    PRIMARY KEY (`Timestamp`,`Name`,`ID`)\
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT COMMENT='iSpindle Data';"
+                # Create table
+                create_data = "CREATE TABLE `Data` (\
+                    `Timestamp` datetime NOT NULL,\
+                    `Name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                    `ID` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                    `Angle` double NOT NULL,\
+                    `Temperature` double NOT NULL,\
+                    `Battery` double NOT NULL,\
+                    `ResetFlag` tinyint(1) DEFAULT NULL,\
+                    `Gravity` double NOT NULL DEFAULT 0,\
+                    `UserToken` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                    `Interval` int(11) DEFAULT NULL,\
+                    `RSSI` int(11) DEFAULT NULL,\
+                    `Recipe` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                    `Recipe_ID` int(11) NOT NULL,\
+                    `Internal` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                    `Comment` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                    `Temperature_Alt` DOUBLE NULL DEFAULT NULL,\
+                        PRIMARY KEY (`Timestamp`,`Name`,`ID`)\
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT COMMENT='iSpindle Data';"
 
-            # create archive table
-            create_archive = "CREATE TABLE `Archive` (\
-                      `Recipe_ID` int(11) NOT NULL AUTO_INCREMENT,\
-                      `Name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\
-                      `ID` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                      `Recipe` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                      `Batch` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,\
-                      `Start_date` datetime NOT NULL,\
-                      `End_date` datetime DEFAULT NULL,\
-                      `const0` double DEFAULT NULL,\
-                      `const1` double DEFAULT NULL,\
-                      `const2` double DEFAULT NULL,\
-                      `const3` double DEFAULT NULL,\
-                      PRIMARY KEY (`Recipe_ID`)\
-                      ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+                # create archive table
+                create_archive = "CREATE TABLE `Archive` (\
+                        `Recipe_ID` int(11) NOT NULL AUTO_INCREMENT,\
+                        `Name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\
+                        `ID` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                        `Recipe` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                        `Batch` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,\
+                        `Start_date` datetime NOT NULL,\
+                        `End_date` datetime DEFAULT NULL,\
+                        `const0` double DEFAULT NULL,\
+                        `const1` double DEFAULT NULL,\
+                        `const2` double DEFAULT NULL,\
+                        `const3` double DEFAULT NULL,\
+                        PRIMARY KEY (`Recipe_ID`)\
+                        ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
 
-            #create calibration table
-            create_calibration = "CREATE TABLE `Calibration` (\
-                          `ID` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\
-                          `const0` double NOT NULL DEFAULT 0,\
-                          `const1` double NOT NULL DEFAULT 0,\
-                          `const2` double NOT NULL DEFAULT 0,\
-                          `const3` double NOT NULL DEFAULT 0,\
-                          PRIMARY KEY (`ID`)\
-                          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='iSpindle Calibration Data' ROW_FORMAT=COMPACT;"
+                #create calibration table
+                create_calibration = "CREATE TABLE `Calibration` (\
+                            `ID` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\
+                            `const0` double NOT NULL DEFAULT 0,\
+                            `const1` double NOT NULL DEFAULT 0,\
+                            `const2` double NOT NULL DEFAULT 0,\
+                            `const3` double NOT NULL DEFAULT 0,\
+                            PRIMARY KEY (`ID`)\
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='iSpindle Calibration Data' ROW_FORMAT=COMPACT;"
 
-            # create config table
-            create_config = "CREATE TABLE `Config` (\
-                     `ID` int(11) NOT NULL,\
-                     `Interval` int(11) NOT NULL,\
-                     `Token` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
-                     `Polynomial` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
-                     `Sent` tinyint(1) NOT NULL\
-                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='iSpindle Config Data' ROW_FORMAT=COMPACT;"
+                # create config table
+                create_config = "CREATE TABLE `Config` (\
+                        `ID` int(11) NOT NULL,\
+                        `Interval` int(11) NOT NULL,\
+                        `Token` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                        `Polynomial` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,\
+                        `Sent` tinyint(1) NOT NULL\
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='iSpindle Config Data' ROW_FORMAT=COMPACT;"
 
 
-            # Create Settings table
-            create_settings= "CREATE TABLE `Settings` (\
-                            `Section` varchar(64) CHARACTER SET utf8 NOT NULL,\
-                            `Parameter` varchar(64) CHARACTER SET utf8 NOT NULL,\
-                            `value` varchar(80) CHARACTER SET utf8 NOT NULL,\
-                            `DEFAULT_value` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
-                            `Description_DE` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
-                            `Description_EN` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
-                            `Description_IT` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
-                            `DeviceName` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL\
-                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT;"
-            alter_settings="ALTER TABLE `Settings`\
-                            ADD PRIMARY KEY (`Section`,`Parameter`,`value`,`DeviceName`);"
-            cur.execute(create_data)
-            cur.execute(create_archive)
-            cur.execute(create_calibration)
-            cur.execute(create_config)
-            cur.execute(create_settings)
-            cur.execute(alter_settings)
-            cur.close()
-            self.cbpi.notify('Database Creation', 'Successfully created Databse', NotificationType.SUCCESS, action=[NotificationAction("OK", self.Confirm)])
-            return True
-        except Exception as e:
-            logging.error('Database Table Creation Error: ' + str(e))
-            return str(e)
+                # Create Settings table
+                create_settings= "CREATE TABLE `Settings` (\
+                                `Section` varchar(64) CHARACTER SET utf8 NOT NULL,\
+                                `Parameter` varchar(64) CHARACTER SET utf8 NOT NULL,\
+                                `value` varchar(80) CHARACTER SET utf8 NOT NULL,\
+                                `DEFAULT_value` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\
+                                `Description_DE` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
+                                `Description_EN` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
+                                `Description_IT` varchar(128) CHARACTER SET utf8 DEFAULT NULL,\
+                                `DeviceName` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL\
+                                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT;"
+                alter_settings="ALTER TABLE `Settings`\
+                                ADD PRIMARY KEY (`Section`,`Parameter`,`value`,`DeviceName`);"
+                cur.execute(create_data)
+                cur.execute(create_archive)
+                cur.execute(create_calibration)
+                cur.execute(create_config)
+                cur.execute(create_settings)
+                cur.execute(alter_settings)
+                cur.close()
+                self.cbpi.notify('Database Creation', 'Successfully created Databse', NotificationType.SUCCESS, action=[NotificationAction("OK", self.Confirm)])
+                return True
+            except Exception as e:
+                logging.error('Database Table Creation Error: ' + str(e))
+                self.cbpi.notify('Database Creation Error', str(e), NotificationType.ERROR, action=[NotificationAction("OK", self.Confirm)])
+                return str(e)
