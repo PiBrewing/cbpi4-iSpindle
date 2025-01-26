@@ -48,7 +48,7 @@ class iSpindleConfig(CBPiExtension):
             try:
                 cnx = mysql.connector.connect(
                 user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=2)
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
                 cur = cnx.cursor()
                 sqlselect = "SELECT VERSION()"
                 cur.execute(sqlselect)
@@ -255,6 +255,7 @@ class iSpindleEndpoint(CBPiExtension):
                 await self.controller.delete_mail_sent(spindle_SQL_CONFIG, 'SentStatus', '1')
 
         await self.controller.send_alarm(spindle_SQL_CONFIG, key, spindle_id)
+        return web.json_response(status=204)
 
     @request_mapping(path='/gettemp/{SpindleID}', method="POST", auth_required=False)
     async def get_fermenter_temp(self, request):

@@ -829,7 +829,7 @@ class iSpindleController:
             #spindle_SQL_CONFIG['database_available'] = database_available
             return spindle_SQL_CONFIG
 
-    async def create_database(self, spindle_SQL_CONFIG, admin='pi', admin_password='1tosca42'):
+    async def create_database(self, spindle_SQL_CONFIG, admin='root', admin_password='raspberry'):
     
         # Create database
         create_db = f"CREATE DATABASE {spindle_SQL_CONFIG['spindle_SQL_DB']} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
