@@ -82,6 +82,7 @@ async def calcGravity(polynom, tilt, unitsGravity):
              Property.Select("Type", options=["Temperature", "Gravity/Angle", "Battery", "RSSI", "DateTime"], description="Select which type of data to register for this sensor. For Angle, Polynomial has to be left empty"),
              Property.Text(label="Polynomial", configurable=True, description="Enter your iSpindel polynomial. Use the variable tilt for the angle reading from iSpindel. Does not support ^ character."),
              Property.Select("Units", options=["SG", "Brix", "°P"], description="Displays gravity reading with this unit if the Data Type is set to Gravity. Does not convert between units, to do that modify your polynomial."),
+             Property.Text(label="GrainConnect_ServerURL", configurable=True, description="Enter the GrainConnect Server URL for this Spindle (only effective for Gravity/Angle sensors)"),
              Property.Sensor("FermenterTemp",description="Select Fermenter Temp Sensor that you want to provide to TCP Server")])
 
 class iSpindle(CBPiSensor):
@@ -144,6 +145,7 @@ class iSpindleEndpoint(CBPiExtension):
         self.cbpi = cbpi
         self.sensor_controller : SensorController = cbpi.sensor
         self.controller = iSpindleController(cbpi)
+        self.lasttime = 0
         # register component for http, events
         # In addtion the sub folder static is exposed to access static content via http
         self.cbpi.register(self, "/api/hydrometer/v1/data")
@@ -209,6 +211,28 @@ class iSpindleEndpoint(CBPiExtension):
             user_token = '*'
 
         cache[key] = {'Time': datatime,'Temperature': temp, 'Angle': angle, 'Battery': battery, 'RSSI': rssi}
+
+        sensorlist = self.cbpi.sensor.get_state()
+        grainconnect_serverurl= None
+        value=0
+        for sensor in sensorlist['data']:
+            try:
+                if (sensor['type'] == 'iSpindle' and sensor['props']['Type'] == 'Gravity/Angle'):
+                    if sensor['props']['iSpindle'] == key:
+                        grainconnect_serverurl = sensor['props']['GrainConnect_ServerURL']
+                        polynomial = sensor['props']['Polynomial']
+                        gravity_units = sensor['props']['Units']
+                        value = await calcGravity(polynomial, angle, sensor['props']['Units'])
+            except:
+                pass
+
+        if grainconnect_serverurl is not None and grainconnect_serverurl != "":
+            logging.info('Time between last and current data: %s' % (round(datatime) - self.lasttime))
+            if (datatime - self.lasttime) >= 900:
+                await self.controller.send_data_to_grainconnect(grainconnect_serverurl, key, spindle_id, temp, temp_units, angle, value, battery, rssi, interval, user_token, gravity_units)
+            else:   
+                logging.error('Data not sent to GrainConnect. Time between last and current data to short (must be > 900 seconds): %s' % (round(datatime) - self.lasttime))
+            self.lasttime = round(datatime)
 
         if self.cbpi.config.get("spindle_SQL", "No") == "Yes":
             await self.controller.send_data_to_sql(datatime, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, spindle_SQL_CONFIG)

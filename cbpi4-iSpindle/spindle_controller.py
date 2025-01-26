@@ -239,6 +239,36 @@ class iSpindleController:
         except Exception as e:
             logging.error('Brewfather Error: ' + str(e))
         
+    async def send_data_to_grainconnect(self, grainconnect_serverurl, key, spindle_id, temp, temp_units, angle, gravity, battery, rssi, interval, user_token, gravity_units):
+        grainconnect_url = "http://community.grainfather.com:80" + grainconnect_serverurl.strip()
+        if gravity_units == "SG":
+            GRAIN_SUFFIX=",SG"
+        else:      
+            GRAIN_SUFFIX = ""
+        outdata = {
+                        'name': key + GRAIN_SUFFIX,
+                        'ID': spindle_id,
+                        'angle': angle,
+                        'temperature': temp,
+                        'temp_units': temp_units,
+                        'battery': battery,
+                        'gravity': gravity,
+                        'token': user_token,
+                        'interval': interval,
+                        'RSSI': rssi
+                    }
+        out=json.dumps(outdata).encode('utf-8')
+        logging.info('serverurl: ' + grainconnect_url)
+        logging.info('Data to GrainConnect: ' + str(outdata))
+        try:
+            http = urllib3.PoolManager()
+            header={'User-Agent': 'iSpindel', 'Connection': 'close', 'Content-Type': 'application/json'}
+            req = http.request('POST', grainconnect_url, body = out, headers = header)
+            if req.status != 201:
+                logging.error('GrainConnect Response: ' + str(req.status))
+        except Exception as e:
+            logging.error('GrainConnect Error: ' + str(e))
+            pass
 
 
     async def get_spindle_sensor(self, iSpindleID = None):
