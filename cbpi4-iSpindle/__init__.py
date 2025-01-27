@@ -24,13 +24,13 @@ class iSpindleConfig(CBPiExtension):
 
     def __init__(self,cbpi):
         self.cbpi = cbpi
-        self.config_controller=iSpindleConfigController(cbpi)
         self._task = asyncio.create_task(self.init_config())
 
     async def init_config(self):
         global sql_connection, spindle_SQL_CONFIG, spindledata
-
+        self.config_controller=iSpindleConfigController(self.cbpi)
         sql_connection=False
+        parametercheck=False
 
         try:
             spindledata, parametercheck, spindle_SQL_CONFIG = await self.config_controller.iSpindle_config()
@@ -41,8 +41,10 @@ class iSpindleConfig(CBPiExtension):
         logger.info("Spindledata: %s" % spindledata)
         logger.info("Parametercheck: %s" % parametercheck)
 
+        logging.error("Waiting for parameters")
         while parametercheck == False:
             await asyncio.sleep(1)
+        logging.error("Parameters received")
         
         if spindle_SQL_CONFIG["spindle_SQL"] == "Yes":
             try:
