@@ -4,14 +4,10 @@ from aiohttp import web
 import logging
 import asyncio
 from cbpi.api import *
-from cbpi.api import *
 import re
-#from cbpi.api.config import ConfigType
 from cbpi.api.dataclasses import DataType
 import mysql.connector
 import datetime
-#from json import JSONEncoder
-#from pandas import DataFrame
 from .spindle_controller import iSpindleController
 from .spindleconfig import iSpindleConfigController
 
@@ -24,7 +20,7 @@ class iSpindleConfig(CBPiExtension):
 
     def __init__(self,cbpi):
         self.cbpi = cbpi
-        self._task = asyncio.create_task(self.init_config())
+        self._task = asyncio.create_task(self.init_config(), name='Spindle_init_config')
 
     async def init_config(self):
         global sql_connection, spindle_SQL_CONFIG, spindledata

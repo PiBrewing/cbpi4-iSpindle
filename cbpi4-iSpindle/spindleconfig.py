@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
 from cbpi.api import *
-from cbpi.api import *
 from cbpi.api.config import ConfigType
 
 logger = logging.getLogger(__name__)
@@ -11,7 +10,6 @@ class iSpindleConfigController:
     def __init__(self, cbpi):
         self.cbpi = cbpi
         pass
-        #self.cbpi = cbpi
 
     async def iSpindle_config(self):
         
