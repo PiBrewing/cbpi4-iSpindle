@@ -153,6 +153,12 @@ class iSpindleController:
             cnx.commit()
         except Exception as e:
             logging.error('Database Error: ' + str(e))
+        try:
+            cur.close()
+            cnx.close()
+        except Exception as e:  
+            logging.error('Database Error: ' + str(e))
+
 
     # retrieve information from database, if mail has been sent for corresponding alarm
     async def check_mail_sent(self, spindle_SQL_CONFIG, alarm, iSpindel):
@@ -167,6 +173,8 @@ class iSpindleController:
             cur.execute(sqlselect)
             mail_sent = cur.fetchall()
             #logger.error('Mail Sent: ' + str(mail_sent))
+            cur.close()
+            cnx.close()
             if len(mail_sent) > 0:
                 for i in mail_sent:
                     spindelID_sent = i[0]
@@ -290,15 +298,21 @@ class iSpindleController:
     
 
     async def get_archive_list(self, spindle_SQL_CONFIG):
-        ORDER="DESC"
-        archive_sql = "SELECT Recipe_ID as value, CONCAT(Batch, ' | ', Name, ' | ',DATE_FORMAT(Start_date, '%Y-%m-%d'),' | ', Recipe, ' (', Recipe_ID,')' ) as 'label' FROM Archive ORDER BY Recipe_ID {}".format(ORDER)
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        cur.execute(archive_sql)
-        columns = [column[0] for column in cur.description]
-        results = [dict(zip(columns, row)) for row in cur.fetchall()]
+        try:
+            ORDER="DESC"
+            archive_sql = "SELECT Recipe_ID as value, CONCAT(Batch, ' | ', Name, ' | ',DATE_FORMAT(Start_date, '%Y-%m-%d'),' | ', Recipe, ' (', Recipe_ID,')' ) as 'label' FROM Archive ORDER BY Recipe_ID {}".format(ORDER)
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            cur.execute(archive_sql)
+            columns = [column[0] for column in cur.description]
+            results = [dict(zip(columns, row)) for row in cur.fetchall()]
+            cnx.close()
+            cur.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+            results = []
         return results
 
   
@@ -314,24 +328,31 @@ class iSpindleController:
     
     async def get_archive_header_data(self, spindle_SQL_CONFIG, ArchiveID):
         result_angle=[] 
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
 
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
+            #get other archive data
+            archive_sql = "Select * FROM Archive WHERE Recipe_ID = {}".format(ArchiveID)
+            cur.execute(archive_sql)
+            columns = [column[0] for column in cur.description] 
+            result_archive = [dict(zip(columns, row)) for row in cur.fetchall()]
 
-        #get other archive data
-        archive_sql = "Select * FROM Archive WHERE Recipe_ID = {}".format(ArchiveID)
-        cur.execute(archive_sql)
-        columns = [column[0] for column in cur.description] 
-        result_archive = [dict(zip(columns, row)) for row in cur.fetchall()]
-
-        Spindle_Name=result_archive[0]['Name']
-        SpindleID=result_archive[0]['ID']
-        Batch=result_archive[0]['Batch']
-        Recipe=result_archive[0]['Recipe']
-        Start_date=result_archive[0]['Start_date']
-        End_date=result_archive[0]['End_date']
+            Spindle_Name=result_archive[0]['Name']
+            SpindleID=result_archive[0]['ID']
+            Batch=result_archive[0]['Batch']
+            Recipe=result_archive[0]['Recipe']
+            Start_date=result_archive[0]['Start_date']
+            End_date=result_archive[0]['End_date']
+        except:
+            Spindle_Name="n/a"
+            SpindleID="n/a"
+            Batch="n/a"
+            Recipe="n/a"
+            Start_date="n/a"
+            End_date="n/a"
 
         try:
             const0=float(result_archive[0]['const0'])
@@ -355,31 +376,33 @@ class iSpindleController:
         else:
             forumla="Not calibrated"
 
+        try:
+            #if no entry for end date in archive table, get last timestamp of last dataset for selected recipe from data table
+            if End_date is None:
+                get_end_date_sql = "SELECT max(Timestamp) FROM Data WHERE Recipe_ID = {}".format(ArchiveID)
+                cur.execute(get_end_date_sql)
+                columns = [column[0] for column in cur.description]
+                result_end_date = [dict(zip(columns, row)) for row in cur.fetchall()]
+                End_date=result_end_date[0]['max(Timestamp)']
 
-        #if no entry for end date in archive table, get last timestamp of last dataset for selected recipe from data table
-        if End_date is None:
-            get_end_date_sql = "SELECT max(Timestamp) FROM Data WHERE Recipe_ID = {}".format(ArchiveID)
-            cur.execute(get_end_date_sql)
+            # check if end flag is set for the archive 
+            RID_END=False
+            check_RID_END = "SELECT * FROM Data WHERE Recipe_ID = {} AND Internal = 'RID_END'".format(ArchiveID)
+            cur.execute(check_RID_END)
             columns = [column[0] for column in cur.description]
-            result_end_date = [dict(zip(columns, row)) for row in cur.fetchall()]
-            End_date=result_end_date[0]['max(Timestamp)']
-
-        # check if end flag is set for the archive 
-        RID_END=False
-        check_RID_END = "SELECT * FROM Data WHERE Recipe_ID = {} AND Internal = 'RID_END'".format(ArchiveID)
-        cur.execute(check_RID_END)
-        columns = [column[0] for column in cur.description]
-        result_RID_END = [dict(zip(columns, row)) for row in cur.fetchall()]
-        if len(result_RID_END) > 0:
-            End_date=result_RID_END[0]['Timestamp']
-            RID_END=True
-                    
-        # Get Angle data for the first hour after reset
-        where_sql = "WHERE Recipe_ID = {} AND Timestamp > (Select MAX(Data.Timestamp) FROM Data WHERE Data.ResetFlag = true AND Recipe_id = {}) AND Timestamp < DATE_ADD((SELECT MAX(Data.Timestamp) FROM Data WHERE Recipe_ID = {} AND Data.ResetFlag = true), INTERVAL 1 HOUR)".format(ArchiveID, ArchiveID, ArchiveID)   
-        sql_select = "SELECT AVG(Data.Angle) as angle FROM Data {}".format(where_sql) 
-        cur.execute(sql_select)
-        columns = [column[0] for column in cur.description]
-        result_angle = [dict(zip(columns, row)) for row in cur.fetchall()]
+            result_RID_END = [dict(zip(columns, row)) for row in cur.fetchall()]
+            if len(result_RID_END) > 0:
+                End_date=result_RID_END[0]['Timestamp']
+                RID_END=True
+                        
+            # Get Angle data for the first hour after reset
+            where_sql = "WHERE Recipe_ID = {} AND Timestamp > (Select MAX(Data.Timestamp) FROM Data WHERE Data.ResetFlag = true AND Recipe_id = {}) AND Timestamp < DATE_ADD((SELECT MAX(Data.Timestamp) FROM Data WHERE Recipe_ID = {} AND Data.ResetFlag = true), INTERVAL 1 HOUR)".format(ArchiveID, ArchiveID, ArchiveID)   
+            sql_select = "SELECT AVG(Data.Angle) as angle FROM Data {}".format(where_sql) 
+            cur.execute(sql_select)
+            columns = [column[0] for column in cur.description]
+            result_angle = [dict(zip(columns, row)) for row in cur.fetchall()]
+        except:
+            pass
         
         try:
             if len(result_angle) > 0:
@@ -387,13 +410,20 @@ class iSpindleController:
                 initial_gravity = round((const0 * initial_angle**3 + const1 * initial_angle**2 + const2 * initial_angle + const3),2)
         except:
             initial_gravity=0.000000001
-
-        # Get Angle data for the last hour before end date -> Final Gravity caculation
-        where_sql="WHERE Recipe_id = {} and Timestamp < '{}' and Recipe_id = {} AND Timestamp > DATE_SUB('{}', INTERVAL 1 HOUR)".format(ArchiveID, End_date, ArchiveID, End_date)
-        sql_select="SELECT AVG(Data.Angle) as angle FROM Data {}".format(where_sql)
-        cur.execute(sql_select)
-        columns = [column[0] for column in cur.description]
-        result_angle = [dict(zip(columns, row)) for row in cur.fetchall()]
+        try:
+            # Get Angle data for the last hour before end date -> Final Gravity caculation
+            where_sql="WHERE Recipe_id = {} and Timestamp < '{}' and Recipe_id = {} AND Timestamp > DATE_SUB('{}', INTERVAL 1 HOUR)".format(ArchiveID, End_date, ArchiveID, End_date)
+            sql_select="SELECT AVG(Data.Angle) as angle FROM Data {}".format(where_sql)
+            cur.execute(sql_select)
+            columns = [column[0] for column in cur.description]
+            result_angle = [dict(zip(columns, row)) for row in cur.fetchall()]
+        except:
+            pass
+        try:
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
         try:
             if len(result_angle) > 0:
                 final_angle=result_angle[0]['angle']
@@ -421,18 +451,22 @@ class iSpindleController:
         except:
             archive_header['Start_date']="1970-01-01"
             archive_header['End_date']="1970-01-01"
-        archive_header['RID_END']=RID_END
-        archive_header['Const0']=const0
-        archive_header['Const1']=const1
-        archive_header['Const2']=const2
-        archive_header['Const3']=const3
-        archive_header['Calibrated']=calibrated
-        archive_header['Formula']=forumla
-        archive_header['Initial_Gravity']=initial_gravity
-        archive_header['Final_Gravity']=final_gravity
-        archive_header['Attenuation']=attenuation
-        archive_header['Alcohol_by_volume']=alcohol_by_volume
-        archive_header['ArchiveID']=ArchiveID
+        try:
+            archive_header['RID_END']=RID_END
+            archive_header['Const0']=const0
+            archive_header['Const1']=const1
+            archive_header['Const2']=const2
+            archive_header['Const3']=const3
+            archive_header['Calibrated']=calibrated
+            archive_header['Formula']=forumla
+            archive_header['Initial_Gravity']=initial_gravity
+            archive_header['Final_Gravity']=final_gravity
+            archive_header['Attenuation']=attenuation
+            archive_header['Alcohol_by_volume']=alcohol_by_volume
+            archive_header['ArchiveID']=ArchiveID
+        except:
+            pass
+
         
         return archive_header
 
@@ -462,51 +496,70 @@ class iSpindleController:
                         FROM Data WHERE Recipe_ID = '{ArchiveID}'{AND_SQL} ORDER BY Timestamp ASC")
 
         # Get all data for the selected recipe
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
 
-        cur.execute(sql_select)
-        df = DataFrame(cur.fetchall())
-        columns = [column[0] for column in cur.description]
-        df.columns = columns
-        df.set_index('Timestamp', inplace=True)
-        data = {"time": df.index.tolist()}
-        for col in df.columns:
-            data[col] = df[col].tolist()
+            cur.execute(sql_select)
+            df = DataFrame(cur.fetchall())
+            columns = [column[0] for column in cur.description]
+            df.columns = columns
+            df.set_index('Timestamp', inplace=True)
+            data = {"time": df.index.tolist()}
+            for col in df.columns:
+                data[col] = df[col].tolist()
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+            data = {}
         return data
     
     async def removearchiveflag(self, spindle_SQL_CONFIG, ArchiveID):
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        sql_update = "UPDATE Data SET Internal = NULL WHERE Recipe_ID = '{}' AND Internal = 'RID_END'".format(ArchiveID)
-        cur.execute(sql_update)
-        cnx.commit()
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            sql_update = "UPDATE Data SET Internal = NULL WHERE Recipe_ID = '{}' AND Internal = 'RID_END'".format(ArchiveID)
+            cur.execute(sql_update)
+            cnx.commit()
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
 
     async def addarchiveflag(self, spindle_SQL_CONFIG, ArchiveID, Timestamp):
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        sql_update = "UPDATE Data SET Internal = 'RID_END' WHERE Recipe_ID = '{}' AND UNIX_TIMESTAMP(Timestamp) = {}".format(ArchiveID, Timestamp)
-        cur.execute(sql_update)
-        cnx.commit()
-
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            sql_update = "UPDATE Data SET Internal = 'RID_END' WHERE Recipe_ID = '{}' AND UNIX_TIMESTAMP(Timestamp) = {}".format(ArchiveID, Timestamp)
+            cur.execute(sql_update)
+            cnx.commit()
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
 
     async def deletearchivefromdatabase(self, spindle_SQL_CONFIG, ArchiveID):
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        sql_delete1 = "DELETE FROM Archive WHERE Recipe_ID = '{}'".format(ArchiveID)
-        sql_delete2 = "DELETE FROM Data WHERE Recipe_ID = '{}'".format(ArchiveID)
-        cur.execute(sql_delete1)
-        cur.execute(sql_delete2)
-        cnx.commit()
-
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            sql_delete1 = "DELETE FROM Archive WHERE Recipe_ID = '{}'".format(ArchiveID)
+            sql_delete2 = "DELETE FROM Data WHERE Recipe_ID = '{}'".format(ArchiveID)
+            cur.execute(sql_delete1)
+            cur.execute(sql_delete2)
+            cnx.commit()
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
     
     async def get_calibration(self, spindle_SQL_CONFIG):
         result_spindles=[]
@@ -514,58 +567,68 @@ class iSpindleController:
         spindle_ids=[]
         spindle_calibration=[]
         calibrated=[]
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
 
-        #get all spindles from Data table
-        spindlenames_sql = "SELECT DATE_FORMAT(max(Timestamp),'%Y-%m-%d') as 'LastSeen', Name FROM Data GROUP BY Name"
-        cur.execute(spindlenames_sql)
-        spindles = cur.fetchall()
+            #get all spindles from Data table
+            spindlenames_sql = "SELECT DATE_FORMAT(max(Timestamp),'%Y-%m-%d') as 'LastSeen', Name FROM Data GROUP BY Name"
+            cur.execute(spindlenames_sql)
+            spindles = cur.fetchall()
 
 
-        for spindle in spindles:
-            spindle_ID_sql=f"SELECT DISTINCT ID FROM Data WHERE Name = '{spindle[1]}'AND (ID <>'' OR ID <>'0') ORDER BY Timestamp DESC LIMIT 1"
-            cur.execute(spindle_ID_sql)
-            spindle_id = cur.fetchall()
-            if len(spindle_id) > 0:
-                spindle_ids.append(int(spindle_id[0][0]))
-            else:
-                spindle_ids.append('0')
+            for spindle in spindles:
+                spindle_ID_sql=f"SELECT DISTINCT ID FROM Data WHERE Name = '{spindle[1]}'AND (ID <>'' OR ID <>'0') ORDER BY Timestamp DESC LIMIT 1"
+                cur.execute(spindle_ID_sql)
+                spindle_id = cur.fetchall()
+                if len(spindle_id) > 0:
+                    spindle_ids.append(int(spindle_id[0][0]))
+                else:
+                    spindle_ids.append('0')
 
-            calibration_sql=f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {int(spindle_id[0][0])}" 
-            cur.execute(calibration_sql)
-            spindle_cal = cur.fetchall()
-            if spindle_cal:
-                spindle_calibration.append(spindle_cal)
-                calibrated.append(True)
-            else:  
-                spindle_calibration.append([(0,0,0,0)])
-                calibrated.append(False)
+                calibration_sql=f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {int(spindle_id[0][0])}" 
+                cur.execute(calibration_sql)
+                spindle_cal = cur.fetchall()
+                if spindle_cal:
+                    spindle_calibration.append(spindle_cal)
+                    calibrated.append(True)
+                else:  
+                    spindle_calibration.append([(0,0,0,0)])
+                    calibrated.append(False)
 
-        i=0
-        for spindle in spindles:
-            data= {"calibrated": calibrated[i],"const0": float(spindle_calibration[i][0][0]), "const1": float(spindle_calibration[i][0][1]), "const2": float(spindle_calibration[i][0][2]), "const3": float(spindle_calibration[i][0][3])}
-            result_spindles.append({'value': i, 'ID': int(spindle_ids[i]) , 'label': spindle[1], 'data': data})
-            i+=1
+            i=0
+            for spindle in spindles:
+                data= {"calibrated": calibrated[i],"const0": float(spindle_calibration[i][0][0]), "const1": float(spindle_calibration[i][0][1]), "const2": float(spindle_calibration[i][0][2]), "const3": float(spindle_calibration[i][0][3])}
+                result_spindles.append({'value': i, 'ID': int(spindle_ids[i]) , 'label': spindle[1], 'data': data})
+                i+=1
+
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
        
         return result_spindles
 
-
     async def save_calibration(self, spindle_SQL_CONFIG, id, data):
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        if data['calibrated'] == True:
-            sql_update = "UPDATE Calibration SET const0 = {}, const1 = {}, const2 = {}, const3 = {} WHERE ID = '{}'".format(data['const0'], data['const1'], data['const2'], data['const3'], id)
-            cur.execute(sql_update)
-            cnx.commit()
-        else:
-            sql_insert = "INSERT INTO Calibration (ID, const0, const1, const2, const3) VALUES ('{}', '{}', '{}', '{}', '{}')".format(id, data['const0'], data['const1'], data['const2'], data['const3'])
-            cur.execute(sql_insert)
-            cnx.commit()
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            if data['calibrated'] == True:
+                sql_update = "UPDATE Calibration SET const0 = {}, const1 = {}, const2 = {}, const3 = {} WHERE ID = '{}'".format(data['const0'], data['const1'], data['const2'], data['const3'], id)
+                cur.execute(sql_update)
+                cnx.commit()
+            else:
+                sql_insert = "INSERT INTO Calibration (ID, const0, const1, const2, const3) VALUES ('{}', '{}', '{}', '{}', '{}')".format(id, data['const0'], data['const1'], data['const2'], data['const3'])
+                cur.execute(sql_insert)
+                cnx.commit()
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
 
     async def get_recent_data(self, spindle_SQL_CONFIG, days):
         spindles = []
@@ -573,122 +636,133 @@ class iSpindleController:
         spindle_data=[]
         spindle_id=[]
         spindle_calibration=[]
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
 
-        #get all spindles from Data table
-        spindlenames_sql = f"SELECT DISTINCT Name FROM Data WHERE Timestamp > date_sub(NOW(), INTERVAL {days} DAY) ORDER BY Name"
-        cur.execute(spindlenames_sql)
-        spindles = cur.fetchall()
+            #get all spindles from Data table
+            spindlenames_sql = f"SELECT DISTINCT Name FROM Data WHERE Timestamp > date_sub(NOW(), INTERVAL {days} DAY) ORDER BY Name"
+            cur.execute(spindlenames_sql)
+            spindles = cur.fetchall()
 
-        if spindles:
-            for spindle in spindles:
-                spindle_ID_sql=f"SELECT DISTINCT ID FROM Data WHERE Name = '{spindle[0]}'AND (ID <>'' OR ID <>'0') ORDER BY Timestamp DESC LIMIT 1"
-                cur.execute(spindle_ID_sql)
-                result = cur.fetchall()
-                if result:
-                    spindle_id=int(result[0][0])
-                else:
-                    spindle_id=0
-                try:
-                    calibration_sql=f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {result[0][0]}" 
-                    cur.execute(calibration_sql)
-                    columns = [column[0] for column in cur.description] 
-                    result_archive = [dict(zip(columns, row)) for row in cur.fetchall()]
-                
-                    Const0=result_archive[0]['const0']
-                    Const1=result_archive[0]['const1'] 
-                    Const2=result_archive[0]['const2']
-                    Const3=result_archive[0]['const3']
-                    calibrated=True
-                except:
-                    Const0=0.0000000001
-                    Const1=0.0000000001
-                    Const2=0.0000000001
-                    Const3=0.0000000001
-                    calibrated=False
-
-                where_sql=(f"WHERE Name = '{spindle[0]}' \
-                            AND Timestamp > (Select MAX(Data.Timestamp) FROM Data  WHERE Data.ResetFlag = true AND Data.Name = '{spindle[0]}') \
-                            AND Timestamp < DATE_ADD((SELECT MAX(Data.Timestamp)FROM Data WHERE Data.Name = '{spindle[0]}' \
-                            AND Data.ResetFlag = true), INTERVAL 1 HOUR)")
-
-                #// query to calculate average angle for this recipe_id and timeframe
-                sql_select= f"SELECT AVG(Angle) as angle FROM Data {where_sql}"
-                cur.execute(sql_select)
-                result = cur.fetchall()
-                try:
-                    initial_angle=float(result[0][0])
-                except:
-                    initial_angle=0.0000000001
-                initial_gravity = (Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3)
-
-                sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity, recipe_id, \
-                            ({Const0}*angle*angle*angle+ {Const1}*angle*angle +{Const2}*angle + {Const3}) as Servergravity \
-                                FROM Data WHERE Name = '{spindle[0]}' ORDER BY Timestamp DESC LIMIT 1")
-                cur.execute(sql_select)
-                columns = [column[0] for column in cur.description]
-                result = [dict(zip(columns, row)) for row in cur.fetchall()]
-
-                if result:
+            if spindles:
+                for spindle in spindles:
+                    spindle_ID_sql=f"SELECT DISTINCT ID FROM Data WHERE Name = '{spindle[0]}'AND (ID <>'' OR ID <>'0') ORDER BY Timestamp DESC LIMIT 1"
+                    cur.execute(spindle_ID_sql)
+                    result = cur.fetchall()
+                    if result:
+                        spindle_id=int(result[0][0])
+                    else:
+                        spindle_id=0
                     try:
-                        hours=12
-                        lasttime=result[0]['unixtime']
-                        old_gravity = await self.getgravityhoursago(spindle_SQL_CONFIG, spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
-                        result[0]['Delta_Gravity']=(float(result[0]['Servergravity'])-old_gravity)
+                        calibration_sql=f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {result[0][0]}" 
+                        cur.execute(calibration_sql)
+                        columns = [column[0] for column in cur.description] 
+                        result_archive = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    
+                        Const0=result_archive[0]['const0']
+                        Const1=result_archive[0]['const1'] 
+                        Const2=result_archive[0]['const2']
+                        Const3=result_archive[0]['const3']
+                        calibrated=True
                     except:
-                        result[0]['Delta_Gravity']=0
-                    result[0]['InitialGravity']=initial_gravity
+                        Const0=0.0000000001
+                        Const1=0.0000000001
+                        Const2=0.0000000001
+                        Const3=0.0000000001
+                        calibrated=False
+
+                    where_sql=(f"WHERE Name = '{spindle[0]}' \
+                                AND Timestamp > (Select MAX(Data.Timestamp) FROM Data  WHERE Data.ResetFlag = true AND Data.Name = '{spindle[0]}') \
+                                AND Timestamp < DATE_ADD((SELECT MAX(Data.Timestamp)FROM Data WHERE Data.Name = '{spindle[0]}' \
+                                AND Data.ResetFlag = true), INTERVAL 1 HOUR)")
+
+                    #// query to calculate average angle for this recipe_id and timeframe
+                    sql_select= f"SELECT AVG(Angle) as angle FROM Data {where_sql}"
+                    cur.execute(sql_select)
+                    result = cur.fetchall()
                     try:
-                        attenuation=(initial_gravity - float(result[0]['Servergravity']))*100/initial_gravity
-                        real_gravity = 0.1808 * initial_gravity + 0.8192 * float(result[0]['Servergravity'])
-                        alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
-                        alcohol_by_volume = (alcohol_by_weight / 0.795)
+                        initial_angle=float(result[0][0])
                     except:
-                        attenuation=0
-                        alcohol_by_volume=0
+                        initial_angle=0.0000000001
+                    initial_gravity = (Const0 * initial_angle**3 + Const1 * initial_angle**2 + Const2 * initial_angle + Const3)
 
-                    result[0]['unixtime']=datetime.datetime.fromtimestamp(result[0]['unixtime']).strftime('%Y-%m-%d %H:%M:%S')
-                    result[0]['Attenuation']=attenuation
-                    result[0]['ABV']=alcohol_by_volume
-                    result[0]['Calibrated']=calibrated
-                    result[0]['Const0']=Const0
-                    result[0]['Const1']=Const1
-                    result[0]['Const2']=Const2
-                    result[0]['Const3']=Const3
-
-                    recipe_id=result[0]['recipe_id']
-                    sql_select=(f"SELECT batch FROM Archive WHERE Recipe_ID = {recipe_id}")
-
+                    sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity, recipe_id, \
+                                ({Const0}*angle*angle*angle+ {Const1}*angle*angle +{Const2}*angle + {Const3}) as Servergravity \
+                                    FROM Data WHERE Name = '{spindle[0]}' ORDER BY Timestamp DESC LIMIT 1")
                     cur.execute(sql_select)
                     columns = [column[0] for column in cur.description]
-                    result_batch = [dict(zip(columns, row)) for row in cur.fetchall()]
-                    if result_batch:
-                        result[0]['BatchID']=result_batch[0]['batch']
+                    result = [dict(zip(columns, row)) for row in cur.fetchall()]
+
+                    if result:
+                        try:
+                            hours=12
+                            lasttime=result[0]['unixtime']
+                            old_gravity = await self.getgravityhoursago(spindle_SQL_CONFIG, spindle[0], Const0, Const1, Const2, Const3, lasttime,hours)
+                            result[0]['Delta_Gravity']=(float(result[0]['Servergravity'])-old_gravity)
+                        except:
+                            result[0]['Delta_Gravity']=0
+                        result[0]['InitialGravity']=initial_gravity
+                        try:
+                            attenuation=(initial_gravity - float(result[0]['Servergravity']))*100/initial_gravity
+                            real_gravity = 0.1808 * initial_gravity + 0.8192 * float(result[0]['Servergravity'])
+                            alcohol_by_weight = ( 100 * (real_gravity - initial_gravity) / (1.0665 * initial_gravity - 206.65))
+                            alcohol_by_volume = (alcohol_by_weight / 0.795)
+                        except:
+                            attenuation=0
+                            alcohol_by_volume=0
+
+                        result[0]['unixtime']=datetime.datetime.fromtimestamp(result[0]['unixtime']).strftime('%Y-%m-%d %H:%M:%S')
+                        result[0]['Attenuation']=attenuation
+                        result[0]['ABV']=alcohol_by_volume
+                        result[0]['Calibrated']=calibrated
+                        result[0]['Const0']=Const0
+                        result[0]['Const1']=Const1
+                        result[0]['Const2']=Const2
+                        result[0]['Const3']=Const3
+
+                        recipe_id=result[0]['recipe_id']
+                        sql_select=(f"SELECT batch FROM Archive WHERE Recipe_ID = {recipe_id}")
+
+                        cur.execute(sql_select)
+                        columns = [column[0] for column in cur.description]
+                        result_batch = [dict(zip(columns, row)) for row in cur.fetchall()]
+                        if result_batch:
+                            result[0]['BatchID']=result_batch[0]['batch']
+                        else:
+                            result[0]['BatchID']='n/a'
+                        currentspindle={'label': spindle[0], 'value': spindle_id, 'data': result[0] }
+                        spindle_data.append(currentspindle)
                     else:
-                        result[0]['BatchID']='n/a'
-                    currentspindle={'label': spindle[0], 'value': spindle_id, 'data': result[0] }
-                    spindle_data.append(currentspindle)
-                else:
-                    currentspindle={'label': spindle[0], 'value': spindle_id, 'data': {} }
-                    spindle_data.append(currentspindle)
+                        currentspindle={'label': spindle[0], 'value': spindle_id, 'data': {} }
+                        spindle_data.append(currentspindle)
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
 
         return spindle_data
 
     async def getgravityhoursago(self, spindle_SQL_CONFIG, spindle, Const0, Const1, Const2, Const3, last, hours=12):
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        
-        sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity \
-                    FROM Data \
-                    WHERE Name = '{spindle}' AND Timestamp > DATE_SUB(FROM_UNIXTIME({last}), INTERVAL {hours} HOUR) limit 1")
-        cur.execute(sql_select)
-        columns = [column[0] for column in cur.description]
-        result = [dict(zip(columns, row)) for row in cur.fetchall()]       
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            
+            sql_select=(f"SELECT UNIX_TIMESTAMP(Timestamp) as unixtime, temperature, angle, recipe, battery, '`Interval`', rssi, gravity \
+                        FROM Data \
+                        WHERE Name = '{spindle}' AND Timestamp > DATE_SUB(FROM_UNIXTIME({last}), INTERVAL {hours} HOUR) limit 1")
+            cur.execute(sql_select)
+            columns = [column[0] for column in cur.description]
+            result = [dict(zip(columns, row)) for row in cur.fetchall()]     
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+            result=[]
         if result:
             angle=result[0]['angle']
             old_gravity=round((Const0 * angle**3 + Const1 * angle**2 + Const2 * angle + Const3),2)
@@ -698,81 +772,87 @@ class iSpindleController:
 
 
     async def reset_spindle_recipe(self, spindle_SQL_CONFIG, id, data):
-        cnx = mysql.connector.connect(
-            user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-        cur = cnx.cursor()
-        spindlename=data['Spindlename']
-        batchid=data['BatchID']
-        recipename=data['RecipeName']
-        timestamp = datetime.datetime.now()
-        time= timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        const0 = float(data['const0'])
-        const1 = float(data['const1'])
-        const2 = float(data['const2'])
-        const3 = float(data['const3'])
-        calibrated=data['calibrated']
-
-
-        sql_select=f"SELECT max(Recipe_ID) as recipeid FROM Archive where Name='{spindlename}'"
-        cur.execute(sql_select)
-        columns = [column[0] for column in cur.description]
-        result = [dict(zip(columns, row)) for row in cur.fetchall()]
-        recipeid=result[0]['recipeid']
-
-
-
-        if recipeid:
-            timestamp_2 = datetime.datetime.now()
-            time= timestamp_2.strftime('%Y-%m-%d %H:%M:%S')
-            if calibrated == True:
-                update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
-                                        WHERE Recipe_ID = '{recipeid}'")
-        
-            else:
-                update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = NULL, const1 = NULL, const2 = NULL, const3 = NULL \
-                                        WHERE Recipe_ID = '{recipeid}'")
-            #logging.error(update_archive_table)
-            cur.execute(update_archive_table)
-            cnx.commit()
-
-
-            #write to archive table     
-        if calibrated == True:
+        try:
+            cnx = mysql.connector.connect(
+                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+            cur = cnx.cursor()
+            spindlename=data['Spindlename']
+            batchid=data['BatchID']
+            recipename=data['RecipeName']
+            timestamp = datetime.datetime.now()
+            time= timestamp.strftime('%Y-%m-%d %H:%M:%S')
             const0 = float(data['const0'])
             const1 = float(data['const1'])
             const2 = float(data['const2'])
             const3 = float(data['const3'])
- 
-            entry_recipe_table_sql = (f"INSERT INTO `Archive` \
-                                (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`, `const1`, `const2`, `const3`) \
-                                VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, '{const0}', '{const1}', '{const2}', '{const3}')")
-        
-        else:
-            entry_recipe_table_sql = (f"INSERT INTO `Archive` \
-                                    (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`,`const1`, `const2`, `const3`) \
-                                    VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, NULL, NULL, NULL, NULL)")
+            calibrated=data['calibrated']
 
-        #logging.error(entry_recipe_table_sql)
-        cur.execute(entry_recipe_table_sql)
-        cnx.commit()
 
-        #write to archive table  
-        get_latest_archive_id_sql=f"SELECT max(Recipe_ID) FROM Archive where Name='{spindlename}'"
-        cur.execute(get_latest_archive_id_sql)
-        columns = [column[0] for column in cur.description]
-        result = [dict(zip(columns, row)) for row in cur.fetchall()]
+            sql_select=f"SELECT max(Recipe_ID) as recipeid FROM Archive where Name='{spindlename}'"
+            cur.execute(sql_select)
+            columns = [column[0] for column in cur.description]
+            result = [dict(zip(columns, row)) for row in cur.fetchall()]
+            recipeid=result[0]['recipeid']
 
-        new_id=[result[0]['max(Recipe_ID)']]
 
-        sql_select=(f"INSERT INTO Data (Timestamp, Name, ID, Angle, Temperature, Battery, resetFlag, RSSI, Recipe, Recipe_ID) \
-                    VALUES ('{time}','{spindlename}', {id}, 0, 0, 0, true, 0, '{recipename}','{new_id[0]}')")
-        #logging.error(sql_select)
-        cur.execute(sql_select)
-        cnx.commit()
-        await self.delete_mail_sent(spindle_SQL_CONFIG, 'SentAlarmLow', id)
-        await self.delete_mail_sent(spindle_SQL_CONFIG, 'SentAlarmSVG', id)
-        pass 
+
+            if recipeid:
+                timestamp_2 = datetime.datetime.now()
+                time= timestamp_2.strftime('%Y-%m-%d %H:%M:%S')
+                if calibrated == True:
+                    update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
+                                            WHERE Recipe_ID = '{recipeid}'")
+            
+                else:
+                    update_archive_table = (f"UPDATE Archive Set End_date = '{time}', const0 = NULL, const1 = NULL, const2 = NULL, const3 = NULL \
+                                            WHERE Recipe_ID = '{recipeid}'")
+                #logging.error(update_archive_table)
+                cur.execute(update_archive_table)
+                cnx.commit()
+
+
+                #write to archive table     
+            if calibrated == True:
+                const0 = float(data['const0'])
+                const1 = float(data['const1'])
+                const2 = float(data['const2'])
+                const3 = float(data['const3'])
+    
+                entry_recipe_table_sql = (f"INSERT INTO `Archive` \
+                                    (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`, `const1`, `const2`, `const3`) \
+                                    VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, '{const0}', '{const1}', '{const2}', '{const3}')")
+            
+            else:
+                entry_recipe_table_sql = (f"INSERT INTO `Archive` \
+                                        (`Recipe_ID`, `Name`, `ID`, `Recipe`, `Batch`, `Start_date`, `End_date`, `const0`,`const1`, `const2`, `const3`) \
+                                        VALUES (NULL, '{spindlename}', '{id}', '{recipename}', '{batchid}', '{time}', NULL, NULL, NULL, NULL, NULL)")
+
+            #logging.error(entry_recipe_table_sql)
+            cur.execute(entry_recipe_table_sql)
+            cnx.commit()
+
+            #write to archive table  
+            get_latest_archive_id_sql=f"SELECT max(Recipe_ID) FROM Archive where Name='{spindlename}'"
+            cur.execute(get_latest_archive_id_sql)
+            columns = [column[0] for column in cur.description]
+            result = [dict(zip(columns, row)) for row in cur.fetchall()]
+
+            new_id=[result[0]['max(Recipe_ID)']]
+
+            sql_select=(f"INSERT INTO Data (Timestamp, Name, ID, Angle, Temperature, Battery, resetFlag, RSSI, Recipe, Recipe_ID) \
+                        VALUES ('{time}','{spindlename}', {id}, 0, 0, 0, true, 0, '{recipename}','{new_id[0]}')")
+            #logging.error(sql_select)
+            cur.execute(sql_select)
+            cnx.commit()
+            await self.delete_mail_sent(spindle_SQL_CONFIG, 'SentAlarmLow', id)
+            await self.delete_mail_sent(spindle_SQL_CONFIG, 'SentAlarmSVG', id)
+            pass
+            cur.close()
+            cnx.close()
+        except Exception as e:
+            logging.error('Database Error: ' + str(e))
+
 
     
     async def transfer_calibration(self, spindle_SQL_CONFIG, SpindleID, ArchiveID):
@@ -789,15 +869,21 @@ class iSpindleController:
             const3=data['const3']
             calibrated=data['calibrated']
             if calibrated == True:
-                cnx = mysql.connector.connect(
-                user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
-                host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
-                cur = cnx.cursor()                         
-                update_archive_table = (f"UPDATE Archive Set const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
-                                        WHERE Recipe_ID = '{ArchiveID}'")
-                cur.execute(update_archive_table) 
-                cnx.commit()
-                return 200
+                try:
+                    cnx = mysql.connector.connect(
+                    user=spindle_SQL_CONFIG['spindle_SQL_USER'],  port=spindle_SQL_CONFIG['spindle_SQL_PORT'], password=spindle_SQL_CONFIG['spindle_SQL_PASSWORD'], \
+                    host=spindle_SQL_CONFIG['spindle_SQL_HOST'], database=spindle_SQL_CONFIG['spindle_SQL_DB'], connection_timeout=1)
+                    cur = cnx.cursor()                         
+                    update_archive_table = (f"UPDATE Archive Set const0 = '{const0}',const1 = '{const1}', const2 = '{const2}', const3 = '{const3}' \
+                                            WHERE Recipe_ID = '{ArchiveID}'")
+                    cur.execute(update_archive_table) 
+                    cnx.commit()
+                    cur.close()
+                    cnx.close()
+                    return 200
+                except Exception as e:
+                    logging.error('Database Error: ' + str(e))
+                    return 500
             else:
                 return 500  
 
@@ -817,6 +903,8 @@ class iSpindleController:
                 logging.info("MySQL connection available. MySQL version: %s" % ver)
                 sql_connection=True
                 database_available=True
+                cur.close()
+                cnx.close()
                 if (ver is None):
                     logging.error("MySQL connection failed")
                     sql_connection=False
@@ -946,6 +1034,7 @@ class iSpindleController:
                 cur.execute(create_settings)
                 cur.execute(alter_settings)
                 cur.close()
+                cnx.close()
                 self.cbpi.notify('Database Creation', 'Successfully created Databse', NotificationType.SUCCESS, action=[NotificationAction("OK", self.Confirm)])
                 return True
             except Exception as e:

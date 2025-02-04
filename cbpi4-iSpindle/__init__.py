@@ -57,6 +57,8 @@ class iSpindleConfig(CBPiExtension):
                 if (ver is None):
                     sql_connection=False
                     logger.error("MySQL connection failed")
+                cnx.close()
+                cur.close()
             except Exception as e:
                 logger.error("MySQL connection failed")
                 logger.error(e)
