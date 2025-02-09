@@ -98,7 +98,7 @@ define a phpmyadmin password.
 
 - Once you have configured a Spindle to send data to your cbpi4 server, the table should fill with data:
 
-![iSpindle Current data table with data](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Current_Data_with_data.png?raw=true)
+![iSpindle Current data table with data](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Current_data_with_data.png?raw=true)
 
 - This Page has several buttons and you can select the SPindles that have sent data recently. 
 - The button set recipe start should be used, if you place a spindle into your fermenter for a starting fermentation. It creates an entry in the database with the name of your fermentation (e.g. Kölsch)  and a batch (e.g. 2501 for the first batch in 2025)
@@ -106,12 +106,12 @@ define a phpmyadmin password.
 - The button Show archive data will bring you to another page, where you can see all fermentations from your database and select different types of diagrams.
 - PLEASE NOTE: You must enter calibration values for your spindle in the interface as some calculations are based on the server calculated gravity.
 
-![iSpindle Calibration](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_CCalibration.png?raw=true)
+![iSpindle Calibration](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Calibration.png?raw=true)
 
 - This can be done on the current data page if a spindle is not yet calibrated or from the archive page.
 - Every time you start a new recipe, the current calibration for the spindle will be used for the archive. If you start a recipe and the spindle has not been calibrated yet, you can calibrate it later and transfer the current calibration to your archive (button on the archive page)
 
-![iSpindle Archive](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Archive.png?raw=true)
+![iSpindle Archive](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Archive_data.png?raw=true)
 
 
 - Add Hardware under Sensor and choose iSpindle as Type
