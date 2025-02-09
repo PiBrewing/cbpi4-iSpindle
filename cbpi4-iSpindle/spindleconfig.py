@@ -314,37 +314,6 @@ class iSpindleConfigController:
                 except:
                     logger.warning("Unable to update database")
 
-        spindle_SQL_TABLE = self.cbpi.config.get(
-            "spindle_SQL_TABLE", None
-        )  # Table name
-        if spindle_SQL_TABLE is None:
-            logger.warning("INIT Spindle Database table Name")
-            try:
-                await self.cbpi.config.add(
-                    "spindle_SQL_TABLE",
-                    "",
-                    type=ConfigType.STRING,
-                    description="SQL database table name",
-                    source=self.name,
-                )
-
-                spindle_SQL = self.cbpi.config.get("spindle_SQL_TABLE", "")
-            except:
-                logger.warning("Unable to update database")
-        else:
-            if self.iSpindle_update == None or self.iSpindle_update != self.version:
-                try:
-                    await self.cbpi.config.add(
-                        "spindle_SQL_TABLE",
-                        spindle_SQL_TABLE,
-                        type=ConfigType.STRING,
-                        description="SQL database table name",
-                        source=self.name,
-                    )
-
-                except:
-                    logger.warning("Unable to update database")
-
         spindle_SQL_USER = self.cbpi.config.get("spindle_SQL_USER", None)  # DB user
         if spindle_SQL_USER is None:
             logger.warning("INIT Spindle Database user name")
@@ -623,7 +592,6 @@ class iSpindleConfigController:
             "spindle_SQL": spindle_SQL,
             "spindle_SQL_HOST": spindle_SQL_HOST,
             "spindle_SQL_DB": spindle_SQL_DB,
-            "spindle_SQL_TABLE": spindle_SQL_TABLE,
             "spindle_SQL_USER": spindle_SQL_USER,
             "spindle_SQL_PASSWORD": spindle_SQL_PASSWORD,
             "spindle_SQL_PORT": spindle_SQL_PORT,
