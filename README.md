@@ -86,15 +86,15 @@ define a phpmyadmin password.
 
 - Click on Spindledata and you should see a message, that the user you have entered has currently no access to the database. Click on the message.
 
-![iSpindle No Connection](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Menu_No_Connection.png?raw=true)
+![iSpindle No Connection](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Menu_no_connection.png?raw=true)
 
 - Enter the user name you have created earlier in the command line (e.g. pi) and the password (e.g. PiSpindle) and click on create databse.
 
-![iSpindle Create Database](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Menu_Create_Database.png?raw=true)
+![iSpindle Create Database](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Menu_create_database.png?raw=true)
 
 - The plugin will create the database and user and after a short moment, you should see this empty table:
 
-![iSpindle Current data table](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Current_Data.png?raw=true)
+![iSpindle Current data table](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Current_data.png?raw=true)
 
 - Once you have configured a Spindle to send data to your cbpi4 server, the table should fill with data:
 
