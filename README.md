@@ -32,7 +32,7 @@ You also might need to install php as this is not automtically installed on rece
 
 	sudo apt-get install php8.2 libapache2-mod-php8.2 php8.2-mbstring php8.2-mysql php8.2-curl php8.2-gd php8.2-zip -y
 	
-You need to install MariaDB on the Raspi. 10.3 seems to be the most recent version as of today for the Raspi (Mysql should also work)
+You need to install MariaDB on the Raspi. (Mysql should also work)
 
 	sudo apt install mariadb-server
 
@@ -42,7 +42,7 @@ Configure the database:
 
 Enter a password for the datase user root during the configuration
 
-Add a user Pi to the database that has all privileges to create also the iSpindle database during setup (Password as example here: 'PiSpindle'):
+Add a user (e.g. pi) to the database that has all privileges to create also the iSpindle database during setup (Password as example here: 'PiSpindle'):
 	
 	sudo mysql --user=root mysql
 
@@ -53,10 +53,6 @@ Add a user Pi to the database that has all privileges to create also the iSpindl
 	QUIT;
 ```
 
-
-
-On my system python3 was installed. If this is not the case on your system you will need to install python3
-
 Install phpmyadmin:
 
 	sudo apt-get install phpmyadmin
@@ -66,9 +62,7 @@ Configure the database: yes
 enter database root password you have choosen during the mariadb installation
 define a phpmyadmin password.
 
-## Sensor Configuration
-
-### Database configuratrion
+## Database configuratrion
 
 - If you want to use data transfer to sql database and the functionality in the user interface you must configure the global settings for the cbpi4-ispindle plugin in the cbpi4 settings page:
 
@@ -114,6 +108,25 @@ define a phpmyadmin password.
 ![iSpindle Archive](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_Archive_data.png?raw=true)
 
 
+## Forwarding data to brewfather
+
+- You can also forward the spindle data to brewfather. Therefore, you need to set 'brewfather_enable' to 'yes' and enter the corresponding settings.
+- In the [brewfather app](https://web.brewfather.app/tabs/settings), you will find the correct settings for your spindle.
+- The token you need to enter ist the token behind the '=' (e.g. /ispindel?id=ATRB43gfdyi) Token:ATRB43gfdyi
+- Data can only be transferred every 15 minutes. Brewfather won't accept shorter cycles. 
+
+![iSpindle Brewfather Configuration](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_brewfather.png?raw=true)
+
+## Alarm configuration
+
+- Alarm parameters can be also set in the global settings.
+- alarmlow: Sends an alarm once the current fermentation (after new recipe start) is below the alarm value (e.g. 4.5) raises an alarm / notification, once the gravity reaches a value below 4.5 °P.
+- alarmsvg: Sends an alarm once the attenuation (after new recipe start) is below the alarm value (e.g. 60) raises an alarm / notification, once the attenuation reaches a value above 60%.
+- dailyalarm: If set to yes, a status message of each acitve spindle will be send once a day.
+- statusupdate: defines the time, when the daily alarm will be send.
+
+## Sensor Configuration
+
 - Add Hardware under Sensor and choose iSpindle as Type
 - If you want to retrieve multiple parameters from one Spindle, you need to add the Spindle several times as sensor and choose different Types
 - The Sensor name should be different for each of your sensors
@@ -130,6 +143,7 @@ define a phpmyadmin password.
 
 ### Changelog:
 
+- xx.02.25: (1.0.0) Added sql database funcitonality from iSpindle TCP Server
 - 25.06.23: (0.0.13) change logging from 'warning' to 'info'
 - 10.06.23: (0.0.12) bump to release
 - 06.03.23: (0.0.12.a2) Added DataType for datetime (TEST)
