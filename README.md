@@ -14,6 +14,8 @@ Please have a look at the [Craftbeerpi4 Documentation](https://openbrewing.gitbo
 
 - Package name: cbpi4-ispindle
 - Package link: https://github.com/PiBrewing/cbpi4-ispindle/archive/main.zip
+- Development Package link: https://github.com/PiBrewing/cbpi4-ispindle/archive/development.zip
+
 
 ## Transfer of spindle data to SQL database:
 
