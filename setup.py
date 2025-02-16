@@ -7,7 +7,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='cbpi4-iSpindle',
-      version='0.0.13',
+      version='1.0.0',
       description='CraftBeerPi4 iSpindle Sensor Plugin',
       author='Alexander Vollkopf',
       author_email='avollkopf@web.de',
@@ -19,6 +19,8 @@ setup(name='cbpi4-iSpindle',
       '': ['*.txt', '*.rst', '*.yaml'],
       'cbpi4-iSpindle': ['*','*.txt', '*.rst', '*.yaml']},
       packages=['cbpi4-iSpindle'],
+      keywords=['globalsettings'],
+      install_requires=['mysql-connector-python'],
       long_description=long_description,
       long_description_content_type='text/markdown'
       )
