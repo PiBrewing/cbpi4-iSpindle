@@ -146,6 +146,7 @@ define a phpmyadmin password.
 
 ### Changelog:
 
+- 01.03.25: (1.0.1) Change data logging from error to info and convert json to string
 - 16.02.25: (1.0.0) Added sql database functionality from iSpindle TCP Server
 - 25.06.23: (0.0.13) change logging from 'warning' to 'info'
 - 10.06.23: (0.0.12) bump to release

@@ -41,10 +41,10 @@ class iSpindleConfig(CBPiExtension):
         logger.info("Spindledata: %s" % spindledata)
         logger.info("Parametercheck: %s" % parametercheck)
 
-        logging.error("Waiting for parameters")
+        logging.info("Waiting for parameters")
         while parametercheck == False:
             await asyncio.sleep(1)
-        logging.error("Parameters received")
+        logging.info("Parameters received")
 
         if spindle_SQL_CONFIG["spindle_SQL"] == "Yes":
             try:
@@ -223,7 +223,7 @@ class iSpindleEndpoint(CBPiExtension):
             data = await request.json()
         except Exception as e:
             print(e)
-        logging.error(data)
+        logging.info(str(data))
         datatime = time.time()
         key = data["name"]
         temp = round(float(data["temperature"]), 2)
