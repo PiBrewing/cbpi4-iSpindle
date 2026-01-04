@@ -332,6 +332,15 @@ class iSpindleEndpoint(CBPiExtension):
                 key, spindle_id, angle, temp, gravity, battery, user_token
             )
 
+        if self.cbpi.config.get("brewpiless_enable", "No") == "Yes":
+            addr = self.cbpi.config.get("brewpiless_addr", None)
+            if addr is not None:
+                await self.controller.send_brewpiless_data(
+                    addr, spindle_id, angle, temp, battery, gravity
+                )
+            else:
+                logging.error("Brewpiless address not set")
+
         if self.cbpi.config.get("statusupdate", "No") == "Yes":
             alarmtime = self.cbpi.config.get("dailyalarm", "6")
             timestatuslow = datetime.time(int(alarmtime) - 1, 45)

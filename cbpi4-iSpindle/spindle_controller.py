@@ -367,6 +367,28 @@ class iSpindleController:
         except Exception as e:
             logging.error("Database Error: " + str(e))
 
+    async def send_data_to_brewpiless(self, addr, spindle_name, angle, temperature, battery, gravity):
+        try:
+            outdata = {
+                'name': spindle_name,
+                'angle': angle,
+                'temperature': temperature,
+                'battery': battery,
+                'gravity': gravity,
+                }
+            out = json.dumps(outdata).encode('utf-8')
+            logging.error("BrewPiLess Data: " + str(out))
+            url = 'http://' + addr + '/gravity'
+            logging.error("BrewPiLess URL: " + str(url))
+            headers = {"Content-Type": "application/json", "User-Agent": spindle_name}
+            retries = urllib3.util.Retry(total=2)
+            http = urllib3.PoolManager(retries=retries)
+            request = http.request("POST", url, headers=headers, body=out)
+            logging.error("BrewPiLess Response: " + str(request.status))
+            logging.error(repr(addr) + " BrewPiLess Data sent: " + str(out))
+        except Exception as e:
+            logging.error(repr(addr) + ' Error while forwarding to URL ' + url + ' : ' + str(e))
+
     async def send_brewfather_data(
         self, key, spindle_id, angle, temp, gravity, battery, user_token
     ):

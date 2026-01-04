@@ -151,6 +151,7 @@ define a phpmyadmin password.
 
 ### Changelog:
 
+- 04.01.26: (1.0.3.alpha) Add brewpiless forwarding option (test)
 - 24.11.25: (1.0.2) Add Spindle Unit to global settings (Plato or SG) in order to display 1 or 3 digits in Spindle data tab. No connect retries for BF
 - 01.03.25: (1.0.1) Change data logging from error to info and convert json to string
 - 16.02.25: (1.0.0) Added sql database functionality from iSpindle TCP Server
