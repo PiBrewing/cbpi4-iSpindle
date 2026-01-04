@@ -367,7 +367,7 @@ class iSpindleController:
         except Exception as e:
             logging.error("Database Error: " + str(e))
 
-    async def send_data_to_brewpiless(self, addr, spindle_name, angle, temperature, battery, gravity):
+    async def send_brewpiless_data(self, addr, spindle_name, angle, temperature, battery, gravity):
         try:
             outdata = {
                 'name': spindle_name,
