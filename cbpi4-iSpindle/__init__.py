@@ -199,8 +199,6 @@ class iSpindleEndpoint(CBPiExtension):
 
     @request_mapping(path="", method="POST", auth_required=False)
     async def http_new_value3(self, request):
-        import time
-
         """
         ---
         description: Get iSpindle Value
@@ -217,7 +215,7 @@ class iSpindleEndpoint(CBPiExtension):
             "204":
                 description: successful operation
         """
-
+        import time
         global cache
         try:
             data = await request.json()
