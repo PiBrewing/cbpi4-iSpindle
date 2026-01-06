@@ -32,7 +32,9 @@ Install the apache server if it is not already installed on your system (not req
 
 You also might need to install php as this is not automtically installed on recent images (also not required on bookworm 64 bit full):
 
-	sudo apt-get install php8.2 libapache2-mod-php8.2 php8.2-mbstring php8.2-mysql php8.2-curl php8.2-gd php8.2-zip -y
+	sudo apt-get install php8.4 libapache2-mod-php8.4 php8.4-mbstring php8.4-mysql php8.4-curl php8.4-gd php8.4-zip -y
+
+If you are installing it under bookworm, php version will be 8.2 and you need to adapt the package names accordingly.
 	
 You need to install MariaDB on the Raspi. (Mysql should also work)
 
@@ -40,7 +42,7 @@ You need to install MariaDB on the Raspi. (Mysql should also work)
 
 Configure the database:
 
-	sudo mysql_secure_installation
+	sudo mariadb-secure-installation
 
 Enter a password for the datase user root during the configuration
 
@@ -151,7 +153,7 @@ define a phpmyadmin password.
 
 ### Changelog:
 
-- 04.01.26: (1.0.3.alpha) Add brewpiless forwarding option (test)
+- 04.01.26: (1.0.3.alpha) Add brewpiless forwarding option (test); Add option to send data via API call / swagger interface for testing purposes
 - 24.11.25: (1.0.2) Add Spindle Unit to global settings (Plato or SG) in order to display 1 or 3 digits in Spindle data tab. No connect retries for BF
 - 01.03.25: (1.0.1) Change data logging from error to info and convert json to string
 - 16.02.25: (1.0.0) Added sql database functionality from iSpindle TCP Server
