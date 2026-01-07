@@ -893,11 +893,14 @@ class iSpindleController:
                 cur.execute(spindle_ID_sql)
                 spindle_id = cur.fetchall()
                 if len(spindle_id) > 0:
-                    spindle_ids.append(int(spindle_id[0][0]))
+                    try:
+                        spindle_ids.append(int(spindle_id[0][0]))
+                    except:
+                        spindle_ids.append(spindle_id[0][0])
                 else:
                     spindle_ids.append("0")
 
-                calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {int(spindle_id[0][0])}"
+                calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = '{str(spindle_id[0][0])}'"
                 cur.execute(calibration_sql)
                 spindle_cal = cur.fetchall()
                 if spindle_cal:
@@ -919,7 +922,7 @@ class iSpindleController:
                 result_spindles.append(
                     {
                         "value": i,
-                        "ID": int(spindle_ids[i]),
+                        "ID": str(spindle_ids[i]),
                         "label": spindle[1],
                         "data": data,
                     }
@@ -990,11 +993,14 @@ class iSpindleController:
                     cur.execute(spindle_ID_sql)
                     result = cur.fetchall()
                     if result:
-                        spindle_id = int(result[0][0])
+                        try:
+                            spindle_id = int(result[0][0])
+                        except:
+                            spindle_id = str(result[0][0])
                     else:
                         spindle_id = 0
                     try:
-                        calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {result[0][0]}"
+                        calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = '{str(result[0][0])}'"
                         cur.execute(calibration_sql)
                         columns = [column[0] for column in cur.description]
                         result_archive = [
