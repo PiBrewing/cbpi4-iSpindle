@@ -126,6 +126,12 @@ define a phpmyadmin password.
 
 ![iSpindle Brewfather Configuration](https://github.com/PiBrewing/cbpi4-iSpindle/blob/development/Spindle_brewfather.png?raw=true)
 
+## Forwarding data to brewpiless
+
+- You can  forward the spindle data to brewpiless as well. Therefore, you need to set 'brewpiless_enable' to 'yes' and enter the corresponding adress of the brewpiless server and port if a differnet port than 80 is being used (IP:PORT).
+- the '/gravity' extension at the end of the url is added by the plugin.
+
+
 ## Alarm configuration
 
 - Alarm parameters can be also set in the global settings.
@@ -153,7 +159,7 @@ define a phpmyadmin password.
 
 ### Changelog:
 
-- 04.01.26: (1.0.3.alpha) Add brewpiless forwarding option (test); Add option to send data via API call / swagger interface for testing purposes
+- 10.01.26: (1.0.3) Add brewpiless forwarding option; Add option to send data via API call / swagger interface for testing purposes
 - 24.11.25: (1.0.2) Add Spindle Unit to global settings (Plato or SG) in order to display 1 or 3 digits in Spindle data tab. No connect retries for BF
 - 01.03.25: (1.0.1) Change data logging from error to info and convert json to string
 - 16.02.25: (1.0.0) Added sql database functionality from iSpindle TCP Server

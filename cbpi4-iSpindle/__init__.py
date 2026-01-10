@@ -207,10 +207,40 @@ class iSpindleEndpoint(CBPiExtension):
         parameters:
         - name: "data"
           in: "body"
-          description: "Data"
-          required: "name"
-          type: "object"
-          type: string
+          description: "iSpindle Data"
+          required: true
+
+          schema:
+            type: object
+
+            properties:
+                name:
+                    type: string
+                temperature:
+                    type: number
+                angle:
+                    type: number
+                battery:
+                    type: number
+                RSSI:
+                    type: number
+                interval:
+                    type: number
+                gravity:
+                    type: number
+                ID:
+                    type: string    
+                
+            example:
+                name: "iSpindle001"
+                temperature: 20.5
+                angle: 45.0
+                battery: 3.7
+                RSSI: -70
+                interval: 600
+                gravity: 1.012
+                ID: "1a34f67890"
+
         responses:
             "204":
                 description: successful operation

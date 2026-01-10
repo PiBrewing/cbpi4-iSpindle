@@ -295,7 +295,7 @@ class iSpindleConfigController:
                     "brewpiless_addr",
                     "",
                     type=ConfigType.STRING,
-                    description="Brewpiless address",
+                    description="Brewpiless Server address (IP:PORT) Port only if not 80",
                     source=self.name,
                 )
 
@@ -309,7 +309,7 @@ class iSpindleConfigController:
                         "brewpiless_addr",
                         brewpiless_addr,
                         type=ConfigType.STRING,
-                        description="Brewpiless address",
+                        description="BBrewpiless Server address (IP:PORT) Port only if not 80",
                         source=self.name,
                     )
 
