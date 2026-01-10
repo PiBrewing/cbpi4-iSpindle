@@ -199,8 +199,6 @@ class iSpindleEndpoint(CBPiExtension):
 
     @request_mapping(path="", method="POST", auth_required=False)
     async def http_new_value3(self, request):
-        import time
-
         """
         ---
         description: Get iSpindle Value
@@ -209,15 +207,45 @@ class iSpindleEndpoint(CBPiExtension):
         parameters:
         - name: "data"
           in: "body"
-          description: "Data"
-          required: "name"
-          type: "object"
-          type: string
+          description: "iSpindle Data"
+          required: true
+
+          schema:
+            type: object
+
+            properties:
+                name:
+                    type: string
+                temperature:
+                    type: number
+                angle:
+                    type: number
+                battery:
+                    type: number
+                RSSI:
+                    type: number
+                interval:
+                    type: number
+                gravity:
+                    type: number
+                ID:
+                    type: string    
+                
+            example:
+                name: "iSpindle001"
+                temperature: 20.5
+                angle: 45.0
+                battery: 3.7
+                RSSI: -70
+                interval: 600
+                gravity: 1.012
+                ID: "1a34f67890"
+
         responses:
             "204":
                 description: successful operation
         """
-
+        import time
         global cache
         try:
             data = await request.json()
@@ -331,6 +359,15 @@ class iSpindleEndpoint(CBPiExtension):
             await self.controller.send_brewfather_data(
                 key, spindle_id, angle, temp, gravity, battery, user_token
             )
+
+        if self.cbpi.config.get("brewpiless_enable", "No") == "Yes":
+            addr = self.cbpi.config.get("brewpiless_addr", None)
+            if addr is not None:
+                await self.controller.send_brewpiless_data(
+                    addr, spindle_id, angle, temp, battery, gravity
+                )
+            else:
+                logging.error("Brewpiless address not set")
 
         if self.cbpi.config.get("statusupdate", "No") == "Yes":
             alarmtime = self.cbpi.config.get("dailyalarm", "6")

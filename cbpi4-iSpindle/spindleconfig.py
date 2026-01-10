@@ -250,6 +250,71 @@ class iSpindleConfigController:
 
                     except:
                         logger.warning("Unable to update database")
+        brewpiless_enable = self.cbpi.config.get("brewpiless_enable", None)
+        if brewpiless_enable is None:
+            logger.warning("INIT Brewpiless enable")
+            try:
+                await self.cbpi.config.add(
+                    "brewpiless_enable",
+                    "No",
+                    type=ConfigType.SELECT,
+                    description="Enable Brewpiless data transfer",
+                    source=self.name,
+                    options=[
+                        {"label": "No", "value": "No"},
+                        {"label": "Yes", "value": "Yes"},
+                    ],
+                )
+
+                brewpiless_enable = self.cbpi.config.get("brewpiless_enable", "No")
+            except:
+                logger.warning("Unable to update database")
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add(
+                        "brewpiless_enable",
+                        brewpiless_enable,
+                        type=ConfigType.SELECT,
+                        description="Enable Brewpiless data transfer",
+                        source=self.name,
+                        options=[
+                            {"label": "No", "value": "No"},
+                            {"label": "Yes", "value": "Yes"},
+                        ],
+                    )
+
+                except:
+                    logger.warning("Unable to update database")
+        
+        brewpiless_addr = self.cbpi.config.get("brewpiless_addr", None)
+        if brewpiless_addr is None:
+            logger.warning("INIT Brewpiless address")
+            try:
+                await self.cbpi.config.add(
+                    "brewpiless_addr",
+                    "",
+                    type=ConfigType.STRING,
+                    description="Brewpiless Server address (IP:PORT) Port only if not 80",
+                    source=self.name,
+                )
+
+                brewpiless_addr = self.cbpi.config.get("brewpiless_addr", "")
+            except:
+                logger.warning("Unable to update database")
+        else:
+            if self.iSpindle_update == None or self.iSpindle_update != self.version:
+                try:
+                    await self.cbpi.config.add(
+                        "brewpiless_addr",
+                        brewpiless_addr,
+                        type=ConfigType.STRING,
+                        description="BBrewpiless Server address (IP:PORT) Port only if not 80",
+                        source=self.name,
+                    )
+
+                except:
+                    logger.warning("Unable to update database")
 
         spindle_SQL = self.cbpi.config.get(
             "spindle_SQL", None

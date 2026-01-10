@@ -367,6 +367,28 @@ class iSpindleController:
         except Exception as e:
             logging.error("Database Error: " + str(e))
 
+    async def send_brewpiless_data(self, addr, spindle_name, angle, temperature, battery, gravity):
+        try:
+            outdata = {
+                'name': spindle_name,
+                'angle': angle,
+                'temperature': temperature,
+                'battery': battery,
+                'gravity': gravity,
+                }
+            out = json.dumps(outdata).encode('utf-8')
+            logging.error("BrewPiLess Data: " + str(out))
+            url = 'http://' + addr + '/gravity'
+            logging.error("BrewPiLess URL: " + str(url))
+            headers = {"Content-Type": "application/json", "User-Agent": spindle_name}
+            retries = urllib3.util.Retry(total=2)
+            http = urllib3.PoolManager(retries=retries)
+            request = http.request("POST", url, headers=headers, body=out)
+            logging.error("BrewPiLess Response: " + str(request.status))
+            logging.error(repr(addr) + " BrewPiLess Data sent: " + str(out))
+        except Exception as e:
+            logging.error(repr(addr) + ' Error while forwarding to URL ' + url + ' : ' + str(e))
+
     async def send_brewfather_data(
         self, key, spindle_id, angle, temp, gravity, battery, user_token
     ):
@@ -871,11 +893,14 @@ class iSpindleController:
                 cur.execute(spindle_ID_sql)
                 spindle_id = cur.fetchall()
                 if len(spindle_id) > 0:
-                    spindle_ids.append(int(spindle_id[0][0]))
+                    try:
+                        spindle_ids.append(int(spindle_id[0][0]))
+                    except:
+                        spindle_ids.append(spindle_id[0][0])
                 else:
                     spindle_ids.append("0")
 
-                calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {int(spindle_id[0][0])}"
+                calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = '{str(spindle_id[0][0])}'"
                 cur.execute(calibration_sql)
                 spindle_cal = cur.fetchall()
                 if spindle_cal:
@@ -897,7 +922,7 @@ class iSpindleController:
                 result_spindles.append(
                     {
                         "value": i,
-                        "ID": int(spindle_ids[i]),
+                        "ID": str(spindle_ids[i]),
                         "label": spindle[1],
                         "data": data,
                     }
@@ -968,11 +993,14 @@ class iSpindleController:
                     cur.execute(spindle_ID_sql)
                     result = cur.fetchall()
                     if result:
-                        spindle_id = int(result[0][0])
+                        try:
+                            spindle_id = int(result[0][0])
+                        except:
+                            spindle_id = str(result[0][0])
                     else:
                         spindle_id = 0
                     try:
-                        calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = {result[0][0]}"
+                        calibration_sql = f"SELECT const0, const1, const2, const3 FROM Calibration WHERE ID = '{str(result[0][0])}'"
                         cur.execute(calibration_sql)
                         columns = [column[0] for column in cur.description]
                         result_archive = [
