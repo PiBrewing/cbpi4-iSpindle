@@ -102,7 +102,7 @@ class iSpindleController:
                             )
                             self.cbpi.notify(
                                 f"Attenuation Alarm from Spindle {str(spindle['label'])}",
-                                str(body),
+                                str(content),
                                 NotificationType.INFO,
                                 action=[NotificationAction("OK", self.Confirm)],
                             )
