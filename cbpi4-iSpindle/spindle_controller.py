@@ -18,7 +18,7 @@ class iSpindleController:
 
     async def send_alarm(self, spindle_SQL_CONFIG, key, spindle_id):
         alarmlow = float(self.cbpi.config.get("alarmlow", 0))
-        alarmsvg = self.cbpi.config.get("alarmsvg", 100)
+        alarmsvg = float(self.cbpi.config.get("alarmsvg", 100))
         spindle_unit = self.cbpi.config.get("spindle_unit", "PLATO")
         if spindle_unit == "PLATO":
             digits= 1
@@ -102,7 +102,7 @@ class iSpindleController:
                             )
                             self.cbpi.notify(
                                 f"Attenuation Alarm from Spindle {str(spindle['label'])}",
-                                str(body),
+                                str(content),
                                 NotificationType.INFO,
                                 action=[NotificationAction("OK", self.Confirm)],
                             )

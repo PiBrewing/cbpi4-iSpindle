@@ -201,7 +201,7 @@ class iSpindleEndpoint(CBPiExtension):
     async def http_new_value3(self, request):
         """
         ---
-        description: Get iSpindle Value
+        description: Transfer iSpindle Value to CraftbeerPi
         tags:
         - iSpindle 
         parameters:
@@ -394,6 +394,19 @@ class iSpindleEndpoint(CBPiExtension):
 
     @request_mapping(path="/gettemp/{SpindleID}", method="POST", auth_required=False)
     async def get_fermenter_temp(self, request):
+        """
+        ---
+        description: Get fermenter temperature for specified spindle id
+        tags:
+        - iSpindle
+        parameters:
+        - name: "SpindleID"
+            in: "path"
+            description: "Spindle ID"
+            required: true
+            type: "string"
+            format: "Spindle ID"
+        """
         SpindleID = request.match_info["SpindleID"]
         sensor_value = await self.controller.get_spindle_sensor(SpindleID)
         data = {"Temp": sensor_value}
@@ -436,6 +449,21 @@ class iSpindleEndpoint(CBPiExtension):
         description: create database for iSpindle
         tags:
         - iSpindle
+        parameters:
+        - in: body
+            name: body
+            description: dict of admin and adminpassword for sql database creation
+            required: true
+            schema:
+                type: object
+    
+                properties:
+                admin:
+                    type: string
+                    required: true
+                adminpassword:
+                    type: string
+                    required: true
         responses:
             "200":
                 description: successful operation
