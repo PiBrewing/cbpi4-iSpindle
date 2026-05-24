@@ -1263,9 +1263,8 @@ class iSpindleController:
         data = []
         spindle_calibration = await self.get_calibration(spindle_SQL_CONFIG)
         for spindle in spindle_calibration:
-            if spindle["ID"] == int(SpindleID):
+            if spindle["ID"] == SpindleID:
                 data = spindle["data"]
-
         if data:
             const0 = data["const0"]
             const1 = data["const1"]

@@ -159,6 +159,7 @@ define a phpmyadmin password.
 
 ### Changelog:
 
+- 24.05-26: (1.0.5) Fix transfer of current spindle calibration to archive
 - 19.03.26: (1.0.4) Fix for alarm sending on SVG limit.
 - 10.01.26: (1.0.3) Add brewpiless forwarding option; Add option to send data via API call / swagger interface for testing purposes
 - 24.11.25: (1.0.2) Add Spindle Unit to global settings (Plato or SG) in order to display 1 or 3 digits in Spindle data tab. No connect retries for BF
